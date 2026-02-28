@@ -1,3 +1,8 @@
-from django.shortcuts import render
+from rest_framework import viewsets, permissions
+from .models import InteriorProject
+from .serializer import InteriorProjectSerializer
 
-# Create your views here.
+class InteriorProjectViewSet(viewsets.ModelViewSet):
+    queryset = InteriorProject.objects.all()
+    serializer_class = InteriorProjectSerializer
+    permission_classes = [permissions.IsAuthenticated]
