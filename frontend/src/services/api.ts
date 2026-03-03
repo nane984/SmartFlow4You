@@ -10,4 +10,5 @@ API.interceptors.request.use((config) => {                          // ključna 
     if (token) config.headers.Authorization = `Bearer ${token}`;    // dodaje Authorization header sa tokenom.
     return config;
 });
+
 export default API;

@@ -6,6 +6,6 @@ router = DefaultRouter()
 router.register('jobpost', JobPostViewSet)
 router.register('cvs', CVViewSet)
 
-urlpattrns = [
+urlpatterns = [
     path('', include(router.urls)),
 ]
