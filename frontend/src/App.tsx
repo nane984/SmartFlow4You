@@ -1,9 +1,14 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Login from "./pages/Login";
-import Register from "./pages/Register"
+
+import Login from "./auth/Login";
+import Register from "./auth/Register";
+
+import PrivateRoute from "./components/common/PrivateRoute";
+import Layout from "./components/layout/Layout";
+
 import Dashboard from "./pages/Dashbord";
-import PrivateRoute from "./routes/PrivateRoute";
-import Layout from "./layout/Layout";
+import TenderRoutes from "./routes/TenderRoutes";
+import CompanyRoutes from "./routes/CompanyRoutes";
 
 function App() {
   return (
@@ -14,13 +19,28 @@ function App() {
         <Route path="/register" element={<Register />} />
 
         {/* Private routes */}
-        <Route path="/" 
-          element={ <PrivateRoute> 
-                      <Layout> 
-                        <Dashboard /> 
-                      </Layout> 
-                    </PrivateRoute>} 
-          />
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <Layout />
+            </PrivateRoute>
+          }
+        >
+          {/* Dashboard kao početna */}
+          <Route index element={<Dashboard />} />
+
+          {/* Modul Tender */}
+          <Route path="tenders/*" element={<TenderRoutes />} />
+
+          {/* Modul Company */}
+          <Route path="companies/*" element={<CompanyRoutes />} />
+
+          {/* Ostali moduli */}
+          <Route path="hr" element={<div>HR Page</div>} />
+          <Route path="time-tracking" element={<div>Time Tracking Page</div>} />
+          <Route path="interior" element={<div>Interior Design Page</div>} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
