@@ -3,43 +3,64 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./auth/Login";
 import Register from "./auth/Register";
 
-import PrivateRoute from "./components/common/PrivateRoute";
+import RequireAuth from "./components/common/RequireAuth";
 import Layout from "./components/layout/Layout";
+import AuthShell from "./components/layout/AuthShell";
 
 import Dashboard from "./pages/Dashbord";
+import PlaceholderPage from "./pages/PlaceholderPage";
 import TenderRoutes from "./routes/TenderRoutes";
 import CompanyRoutes from "./routes/CompanyRoutes";
+import OfferRoutes from "./routes/OfferRouts";
+import HrRoutes from "./routes/HrRoutes";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-
-        {/* Private routes */}
         <Route
-          path="/"
+          path="/login"
           element={
-            <PrivateRoute>
-              <Layout />
-            </PrivateRoute>
+            <AuthShell subtitle="Workforce & operations hub">
+              <Login />
+            </AuthShell>
           }
-        >
-          {/* Dashboard kao početna */}
-          <Route index element={<Dashboard />} />
+        />
+        <Route
+          path="/register"
+          element={
+            <AuthShell subtitle="Create your SmartFlow account">
+              <Register />
+            </AuthShell>
+          }
+        />
 
-          {/* Modul Tender */}
-          <Route path="tenders/*" element={<TenderRoutes />} />
-
-          {/* Modul Company */}
-          <Route path="companies/*" element={<CompanyRoutes />} />
-
-          {/* Ostali moduli */}
-          <Route path="hr" element={<div>HR Page</div>} />
-          <Route path="time-tracking" element={<div>Time Tracking Page</div>} />
-          <Route path="interior" element={<div>Interior Design Page</div>} />
+        <Route element={<RequireAuth />}>
+          <Route element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="tenders/*" element={<TenderRoutes />} />
+            <Route path="companies/*" element={<CompanyRoutes />} />
+            <Route path="offers/*" element={<OfferRoutes />} />
+            <Route path="hr/*" element={<HrRoutes />} />
+            <Route
+              path="time-tracking"
+              element={
+                <PlaceholderPage
+                  title="Time tracking"
+                  description="Track hours and attendance across teams."
+                />
+              }
+            />
+            <Route
+              path="interior"
+              element={
+                <PlaceholderPage
+                  title="Interior design"
+                  description="Concepts and project boards will appear here."
+                />
+              }
+            />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>
