@@ -1,8 +1,12 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { createCompany, getCompanyById, updateCompany } from "./company.api";
 import { useEffect, useState } from "react";
-import type{ CompanyPayload } from "./company.type";
-
+import type { CompanyPayload } from "./company.type";
+import PageHeader from "../../components/ui/PageHeader";
+import Card from "../../components/ui/Card";
+import Field from "../../components/ui/Field";
+import Button from "../../components/ui/Button";
+import { controlClass } from "../../components/ui/inputStyles";
 
 const CompanyForm = () => {
     const navigate = useNavigate();
@@ -11,65 +15,97 @@ const CompanyForm = () => {
         name: "",
         email: "",
         contact_person: "",
-        city: ""
+        city: "",
     });
 
     useEffect(() => {
-        if(id){
+        if (id) {
             loadCompany();
         }
-    },[id]);
+    }, [id]);
 
     const loadCompany = async () => {
         const res = await getCompanyById(Number(id));
         setData(res);
-    }
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setData({...data,
-            [e.target.name]: e.target.value
+        setData({
+            ...data,
+            [e.target.name]: e.target.value,
         });
-    }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(id){
+        if (id) {
             await updateCompany(Number(id), data);
-        }else{
+        } else {
             await createCompany(data);
         }
         navigate("/companies");
-    }
+    };
+
+    const isEdit = Boolean(id);
 
     return (
-        <form onSubmit={handleSubmit}>
-            <input 
-                name="name"
-                placeholder="name"
-                value={data.name}
-                onChange={handleChange}
+        <>
+            <PageHeader
+                title={isEdit ? "Edit company" : "New company"}
+                description="Store contact details for partners and clients."
             />
-            <input 
-                name="email"
-                placeholder="email"
-                value={data.email}
-                onChange={handleChange}
-            />
-            <input 
-                name="contact_person"
-                placeholder="contact_person"
-                value={data.contact_person}
-                onChange={handleChange}
-            />
-            <input 
-                name="city"
-                placeholder="city"
-                value={data.city}
-                onChange={handleChange}
-            />
-            <button type="submit">Save</button>
-
-        </form>
+            <Card className="max-w-xl">
+                <form className="space-y-5" onSubmit={handleSubmit}>
+                    <Field label="Company name">
+                        <input
+                            className={controlClass}
+                            name="name"
+                            placeholder="Acme d.o.o."
+                            value={data.name}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Field>
+                    <Field label="Email">
+                        <input
+                            className={controlClass}
+                            type="email"
+                            name="email"
+                            placeholder="contact@example.com"
+                            value={data.email}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Field>
+                    <Field label="Contact person">
+                        <input
+                            className={controlClass}
+                            name="contact_person"
+                            placeholder="Full name"
+                            value={data.contact_person}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Field>
+                    <Field label="City">
+                        <input
+                            className={controlClass}
+                            name="city"
+                            placeholder="Belgrade"
+                            value={data.city}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Field>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                        <Button type="submit">Save</Button>
+                        <Button type="button" variant="secondary" onClick={() => navigate("/companies")}>
+                            Cancel
+                        </Button>
+                    </div>
+                </form>
+            </Card>
+        </>
     );
 };
 

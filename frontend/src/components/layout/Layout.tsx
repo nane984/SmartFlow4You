@@ -1,20 +1,19 @@
 import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar";
-import Topbar from "./Topbar";
+import Navbar from "./Navbar";
+import PageContainer from "./PageContainer";
 
-const Layout = () => {
-  return (
-    <div style={{ display: "flex", height: "100vh" }}>
-      <Sidebar />
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <Topbar />
-        <div style={{ padding: "20px", flex: 1, overflowY: "auto" }}>
-          <Outlet />
+/**
+ * Authenticated shell: sticky navbar + scrollable main with consistent page padding.
+ */
+export default function Layout() {
+    return (
+        <div className="flex min-h-screen flex-col bg-slate-100">
+            <Navbar />
+            <main className="flex-1">
+                <PageContainer>
+                    <Outlet />
+                </PageContainer>
+            </main>
         </div>
-      </div>
-    </div>
-  );
-};
-
-export default Layout;
+    );
+}

@@ -1,14 +1,43 @@
-import axios from "axios"                           // Uvozi Axios biblioteku, koja služi za pravljenje HTTP zahteva
+import axios from "axios";
+import { clearAuthStorage } from "../auth/authUtils";
 
-const API = axios.create({                          // kreiranje instace axiosa (create)
-    baseURL: "http://localhost:8000/api/",          // baseURL je URL koji će se automatski dodavati svim zahtevima.
+const API = axios.create({
+    baseURL: "http://localhost:8000/api/",
 });
 
-// interceptors.request.use() → svaki zahtev koji šalješ prolazi kroz ovu funkciju pre nego što ode na server.
-API.interceptors.request.use((config) => {                          // ključna stvar za JWT autentifikaciju
-    const token = localStorage.getItem("access");                   //localStorage.getItem("access") → koristi JWT token iz browser lokalne memorije.
-    if (token) config.headers.Authorization = `Bearer ${token}`;    // dodaje Authorization header sa tokenom.
+API.interceptors.request.use((config) => {
+    const token = localStorage.getItem("access");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
 });
+
+API.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+            return Promise.reject(error);
+        }
+
+        const hadAuthHeader = Boolean(error.config?.headers?.Authorization);
+
+        // Wrong password on POST /token/ is also 401 — do not hard-redirect or clear tokens then.
+        if (!hadAuthHeader) {
+            return Promise.reject(error);
+        }
+
+        clearAuthStorage();
+
+        const path = `${window.location.pathname}${window.location.search}`;
+        if (
+            window.location.pathname.startsWith("/login") ||
+            window.location.pathname.startsWith("/register")
+        ) {
+            return Promise.reject(error);
+        }
+
+        window.location.assign(`/login?from=${encodeURIComponent(path)}`);
+        return Promise.reject(error);
+    }
+);
 
 export default API;

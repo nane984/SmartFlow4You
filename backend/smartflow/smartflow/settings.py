@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'rest_framework',
+
     'corsheaders',                                              #za frontend komunikaciju
 
     'tenders',
@@ -143,3 +145,6 @@ AUTH_USER_MODEL = 'core.User'
 
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
+
+# HR: CV uploads (PDF / Word)
+HR_CV_MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MiB
