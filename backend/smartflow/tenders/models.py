@@ -19,6 +19,8 @@ class Tender(models.Model):
 
 
 class Offer(models.Model):
+    """A bid/quote for a tender, with optional attachment and tracked submitter."""
+
     tender = models.ForeignKey(Tender, on_delete=models.CASCADE)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     file = models.FileField(upload_to="offers/")

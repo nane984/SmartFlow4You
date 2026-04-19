@@ -4,7 +4,7 @@ from .views import CompanyViewSet, TenderViewSet, OfferViewSet
 
 router = DefaultRouter()
 router.register('companies', CompanyViewSet)
-router.register('tenders', TenderViewSet)
+router.register('tenders', TenderViewSet)                
 router.register('offers', OfferViewSet)
 
 urlpatterns = [

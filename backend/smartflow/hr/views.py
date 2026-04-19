@@ -6,9 +6,15 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import CV, InterviewSession, JobPost, Question
-from .permissions import IsStaffUser
+from .models import Answer, CV, InterviewSession, JobPost, Question, VideoSubmission
+from .permissions import (
+    IsCandidate,
+    IsHRUser,
+    IsInterviewer,
+    IsStaffUser,
+)
 from .serializer import (
+    AnswerReviewSerializer,
     CVSerializer,
     InterviewSessionSerializer,
     JobPostSerializer,
@@ -22,15 +28,22 @@ def _interview_sessions_for_user(user):
     qs = InterviewSession.objects.select_related("cv", "cv__job_post", "interviewer").order_by(
         "-start_time", "-id"
     )
-    if user.is_staff:
+    if user.role in ("admin", "hr"):
         return qs
+    if user.role == "interviewer":
+        return qs.filter(interviewer=user)
     return qs.filter(cv__submitted_by=user)
 
 
 class JobPostViewSet(viewsets.ModelViewSet):
     queryset = JobPost.objects.all()
     serializer_class = JobPostSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsHRUser()]
 
     def get_queryset(self):
         qs = JobPost.objects.all()
@@ -47,6 +60,22 @@ class CVViewSet(viewsets.ModelViewSet):
     serializer_class = CVSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
+
+    def get_permissions(self):
+        if self.action in ("create",):
+            return [permissions.IsAuthenticated(), IsCandidate()]
+        if self.action in ("list",):
+            return [permissions.IsAuthenticated(), IsHRUser()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = CV.objects.select_related("job_post").all().order_by("-id")
+        user = self.request.user
+        if not user.is_authenticated:
+            return CV.objects.none()
+        if user.role in ("admin", "hr"):
+            return qs
+        return qs.filter(submitted_by=user)
 
     def perform_create(self, serializer):
         serializer.save(submitted_by=self.request.user)
@@ -68,7 +97,7 @@ class InterviewSessionViewSet(viewsets.ModelViewSet):
 
     def _can_control_session(self, request, session) -> bool:
         return bool(
-            request.user.is_staff
+            request.user.role in ("admin", "hr")
             or (session.cv.submitted_by_id and session.cv.submitted_by_id == request.user.id)
         )
 
@@ -149,6 +178,45 @@ class InterviewSessionViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="videos",
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def videos(self, request, pk=None):
+        session = self.get_object()
+        videos = VideoSubmission.objects.filter(interview_session=session).order_by("-timestamp", "-id")
+        return Response(VideoUploadSerializer(videos, many=True).data)
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="answers-review",
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def answers_review(self, request, pk=None):
+        session = self.get_object()
+        answers = Answer.objects.filter(interview_session=session).select_related("question").order_by("id")
+        return Response(AnswerReviewSerializer(answers, many=True).data)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="submit-feedback",
+        permission_classes=[permissions.IsAuthenticated, IsInterviewer],
+    )
+    def submit_feedback(self, request, pk=None):
+        session = self.get_object()
+        if session.interviewer_id != request.user.id and request.user.role != "admin":
+            return Response({"detail": "Not assigned to this interview."}, status=status.HTTP_403_FORBIDDEN)
+        feedback = request.data.get("feedback")
+        if not isinstance(feedback, str) or not feedback.strip():
+            return Response({"feedback": "Feedback is required."}, status=status.HTTP_400_BAD_REQUEST)
+        session.feedback = feedback.strip()
+        session.save(update_fields=["feedback"])
+        return Response(InterviewSessionSerializer(session).data)
+
 
 class InterviewVideoUploadAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -175,3 +243,79 @@ class InterviewVideoUploadAPIView(APIView):
         serializer.save(interview_session=interview_session)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class JobAccessViewSet(viewsets.ModelViewSet):
+    """
+    Alias endpoints:
+    - GET /api/jobs/ public
+    - POST /api/jobs/ HR + ADMIN
+    """
+
+    queryset = JobPost.objects.all().order_by("-id")
+    serializer_class = JobPostSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsHRUser()]
+
+
+class ApplicationViewSet(viewsets.ModelViewSet):
+    """
+    Alias endpoints:
+    - POST /api/applications/ CANDIDATE
+    - GET /api/applications/ HR + ADMIN
+    """
+
+    queryset = CV.objects.select_related("job_post").all().order_by("-id")
+    serializer_class = CVSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ("create",):
+            return [permissions.IsAuthenticated(), IsCandidate()]
+        if self.action in ("list",):
+            return [permissions.IsAuthenticated(), IsHRUser()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = CV.objects.select_related("job_post").all().order_by("-id")
+        if self.request.user.role in ("admin", "hr"):
+            return qs
+        return qs.filter(submitted_by=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(submitted_by=self.request.user)
+
+
+class InterviewAccessViewSet(viewsets.ModelViewSet):
+    """
+    Alias endpoints:
+    - POST /api/interviews/ HR
+    - GET /api/interviews/ INTERVIEWER + ADMIN
+    """
+
+    queryset = InterviewSession.objects.select_related("cv", "interviewer").all().order_by("-start_time", "-id")
+    serializer_class = InterviewSessionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ("create",):
+            return [permissions.IsAuthenticated(), IsHRUser()]
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated(), IsInterviewer()]
+        return [permissions.IsAuthenticated(), IsHRUser()]
+
+    def get_queryset(self):
+        qs = InterviewSession.objects.select_related("cv", "interviewer").all().order_by("-start_time", "-id")
+        user = self.request.user
+        if user.role == "admin":
+            return qs
+        if user.role == "interviewer":
+            return qs.filter(interviewer=user)
+        if user.role == "hr":
+            return qs
+        return InterviewSession.objects.none()

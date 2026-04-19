@@ -3,14 +3,45 @@ from core.models import User
 
 
 class JobPost(models.Model):
-    title = models.CharField(max_length=255)
-    description = models.TextField()
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    published = models.BooleanField(default=False)
-    published_at = models.DateTimeField(null=True, blank=True)
+    job_title = models.CharField(max_length=255)
+    job_company = models.CharField(max_length=255)
+    job_location = models.CharField(max_length=255)
+    job_description = models.TextField()
+    job_responsibilities = models.TextField()
+    job_requirements = models.TextField()
+    job_benefits = models.TextField()
+    job_salary_min = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    job_salary_max = models.DecimalField(
+    max_digits=10,
+    decimal_places=2,
+    null=True,
+    blank=True
+)
+    job_type = models.CharField(max_length=255)
+    job_category = models.CharField(max_length=255)
+    job_subcategory = models.CharField(max_length=255)
+    
+    job_created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    job_published = models.BooleanField(default=False)
+    job_published_at = models.DateTimeField(null=True, blank=True)
 
 
 class CV(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_ACCEPTED = "accepted"
+    STATUS_REJECTED = "rejected"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_ACCEPTED, "Accepted"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
     file = models.FileField(upload_to='cvs/')                       # u folder cvs uploaduje cv
     aplicant_name = models.CharField(max_length=255)
     job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE)
@@ -24,6 +55,7 @@ class CV(models.Model):
     )
     score = models.FloatField(null=True)
     processed = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
 
 
 class InterviewSession(models.Model):
@@ -45,6 +77,12 @@ class InterviewSession(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_SCHEDULED)
     interviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     duration_seconds = models.IntegerField(default=120)
+    score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Final interview test score (0-100). Calculated once on answer submission.",
+    )
+    feedback = models.TextField(null=True, blank=True)
 
 
 class VideoSubmission(models.Model):

@@ -33,7 +33,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
-            role=validated_data.get('role', 'employee')
+            role=validated_data.get('role', 'candidate')
         )
         user.set_password(validated_data['password'])
         user.save()

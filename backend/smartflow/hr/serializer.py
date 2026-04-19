@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from django.conf import settings
+from django.db import models
 from rest_framework import serializers
 
 from .models import Answer, CV, InterviewSession, JobPost, Question, VideoSubmission
@@ -27,6 +28,7 @@ class CVSerializer(serializers.ModelSerializer):
             "submitted_by",
             "score",
             "processed",
+            "status",
         )
         read_only_fields = ("id", "score", "processed", "submitted_by")
 
@@ -64,7 +66,10 @@ class InterviewSessionSerializer(serializers.ModelSerializer):
             "status",
             "interviewer",
             "duration_seconds",
+            "score",
+            "feedback",
         )
+        read_only_fields = ("score",)
 
     def validate_duration_seconds(self, value: int) -> int:
         if value < 1:
@@ -176,9 +181,44 @@ class SubmitAnswersSerializer(serializers.Serializer):
                 defaults={"selected_answer": item["selected_answer"]},
             )
 
+        # Calculate and persist score once (0-100 percentage).
+        if session.score is None:
+            total_questions = Question.objects.filter(interview_session=session).count()
+            if total_questions == 0:
+                score_percent = 0.0
+            else:
+                correct_answers = Answer.objects.filter(
+                    interview_session=session,
+                    question__interview_session=session,
+                    selected_answer=models.F("question__correct_answer"),
+                ).count()
+                score_percent = round((correct_answers / total_questions) * 100.0, 2)
+            session.score = score_percent
+            session.save(update_fields=["score"])
+
 
 class VideoUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = VideoSubmission
         fields = ("id", "video", "timestamp")
         read_only_fields = ("id", "timestamp")
+
+
+class AnswerReviewSerializer(serializers.ModelSerializer):
+    question_text = serializers.CharField(source="question.text", read_only=True)
+    correct_answer = serializers.CharField(source="question.correct_answer", read_only=True)
+    is_correct = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Answer
+        fields = (
+            "id",
+            "question",
+            "question_text",
+            "selected_answer",
+            "correct_answer",
+            "is_correct",
+        )
+
+    def get_is_correct(self, obj: Answer) -> bool:
+        return obj.selected_answer == obj.question.correct_answer

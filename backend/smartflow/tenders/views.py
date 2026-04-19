@@ -15,6 +15,8 @@ class TenderViewSet(viewsets.ModelViewSet):
 
 
 class OfferViewSet(viewsets.ModelViewSet):
+    """Authenticated CRUD for offers (`/api/.../offers/` via router)."""
+
     queryset = Offer.objects.all()
     serializer_class = OfferSerializer
     permission_classes = [permissions.IsAuthenticated]

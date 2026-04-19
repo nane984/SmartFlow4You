@@ -8,12 +8,18 @@ class CompanySerializer(serializers.ModelSerializer):
 
 
 class TenderSerializer(serializers.ModelSerializer):
+    companies = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Company.objects.all()
+    )
     class Meta:
         model = Tender
         fields = '__all__'
 
 
 class OfferSerializer(serializers.ModelSerializer):
+    """Exposes all offer fields, including `file` uploads (multipart)."""
+
     class Meta:
         model = Offer
         fields = '__all__'

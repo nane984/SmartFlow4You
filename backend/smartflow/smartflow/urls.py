@@ -22,7 +22,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     path('api/core/', include('core.urls')),
-    path('api/tenders/', include('tenders.urls')),
+    path('api/', include('tenders.urls')),
+    path('api/', include('hr.role_urls')),
     path('api/hr/', include('hr.urls')),
     path('api/time_tracking/', include('time_tracking.urls')),
     path('api/interior_design/', include('interior_design.urls')),
