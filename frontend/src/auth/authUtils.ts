@@ -1,12 +1,19 @@
+import { ROLES, type AppRole } from "./roles";
+
+
+
 /** Clears tokens stored by the login flow. */
 export function clearAuthStorage(): void {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+    localStorage.removeItem("role");
+    localStorage.removeItem("user");
 }
 
 function decodeJwtPayload(token: string): { exp?: number } | null {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
+
     const segment = parts[1];
     try {
         const base64 = segment.replace(/-/g, "+").replace(/_/g, "/");
@@ -23,8 +30,34 @@ function decodeJwtPayload(token: string): { exp?: number } | null {
  */
 export function isAccessTokenValid(token: string | null | undefined): boolean {
     if (!token || typeof token !== "string" || !token.trim()) return false;
+
     const payload = decodeJwtPayload(token.trim());
     if (!payload || typeof payload.exp !== "number") return false;
+
     const skewMs = 30_000;
     return payload.exp * 1000 > Date.now() - skewMs;
+}
+
+
+// proveriti da li treba da se brise
+export function setStoredRole(role: string | null | undefined): void {
+    if (!role) {
+        localStorage.removeItem("role");
+        return;
+    }
+    localStorage.setItem("role", role);
+}
+
+export function getUserRole(): AppRole | null {
+    const role = localStorage.getItem("role")?.toLowerCase();
+
+    if (
+        role === ROLES.ADMIN ||
+        role === ROLES.HR ||
+        role === ROLES.CANDIDATE ||
+        role === ROLES.INTERVIEWER
+    ) {
+        return role;
+    }
+    return null;
 }

@@ -1,0 +1,7 @@
+{
+  "venvPath": "backend",
+  "venv": "venv",
+  "include": ["backend/smartflow"],
+  "exclude": ["**/node_modules", "**/migrations"],
+  "pythonVersion": "3.11"
+}

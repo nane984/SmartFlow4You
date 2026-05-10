@@ -12,6 +12,7 @@ export type InterviewSession = {
     status: InterviewSessionStatus;
     interviewer: number | null;
     duration_seconds: number;
+    score: number | null;
 };
 
 export type RoomQuestion = {

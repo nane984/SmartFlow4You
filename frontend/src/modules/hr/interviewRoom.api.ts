@@ -12,6 +12,11 @@ export async function getInterviewSession(sessionId: number): Promise<InterviewS
     return res.data;
 }
 
+export async function getInterviewSessions(): Promise<InterviewSession[]> {
+    const res = await api.get<InterviewSession[]>("hr/interview-sessions/");
+    return Array.isArray(res.data) ? res.data : [];
+}
+
 export async function startInterviewSession(sessionId: number): Promise<InterviewSession> {
     const res = await api.post<InterviewSession>(`hr/interview-sessions/${sessionId}/start/`);
     return res.data;

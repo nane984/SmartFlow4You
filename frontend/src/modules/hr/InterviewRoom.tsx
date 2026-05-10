@@ -283,7 +283,7 @@ export default function InterviewRoom() {
         return (
             <Card className="max-w-lg border-amber-200/80 bg-amber-50/50">
                 <p className="text-sm text-amber-900">Invalid session id in URL.</p>
-                <Link to="/hr" className="mt-3 inline-block text-sm font-medium text-brand-800 underline">
+                <Link to="/hr-dashboard" className="mt-3 inline-block text-sm font-medium text-brand-800 underline">
                     Back to HR
                 </Link>
             </Card>
@@ -297,7 +297,7 @@ export default function InterviewRoom() {
                 <Button type="button" variant="secondary" className="mt-4" onClick={() => void loadRoom()}>
                     Retry
                 </Button>
-                <Link to="/hr" className="ml-3 text-sm font-medium text-brand-800 underline">
+                <Link to="/hr-dashboard" className="ml-3 text-sm font-medium text-brand-800 underline">
                     Back to HR
                 </Link>
             </Card>
@@ -322,7 +322,7 @@ export default function InterviewRoom() {
                 title="Interview room"
                 description={`Session #${session.id} · CV #${session.cv} · ${session.duration_seconds}s allotted for recording`}
                 actions={
-                    <LinkButton to="/hr" variant="secondary" size="sm">
+                    <LinkButton to="/hr-dashboard" variant="secondary" size="sm">
                         ← HR home
                     </LinkButton>
                 }

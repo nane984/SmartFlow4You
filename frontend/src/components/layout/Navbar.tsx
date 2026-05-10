@@ -1,17 +1,42 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { clearAuthStorage } from "../../auth/authUtils";
+import { clearAuthStorage, getUserRole} from "../../auth/authUtils";
+import type { AppRole } from "../../auth/roles"
 import Button from "../ui/Button";
 import { cn } from "../ui/cn";
 
 const navItems = [
-    { to: "/", label: "Dashboard", end: true },
-    { to: "/hr", label: "HR" },
-    { to: "/tenders", label: "Tenders" },
-    { to: "/companies", label: "Companies" },
-    { to: "/offers", label: "Offers" },
-    { to: "/time-tracking", label: "Time" },
-    { to: "/interior", label: "Interior" },
+    { to: "/", label: "Dashboard", end: true, roles: ["admin", "hr", "candidate", "interviewer"] as AppRole[] },
+    { to: "/hr-dashboard", label: "HR Dashboard", roles: ["admin", "hr"] as AppRole[] },
+    { to: "/hr/jobs", label: "Job Management", roles: ["admin", "hr"] as AppRole[] },
+    { to: "/candidate-dashboard", label: "Candidate Dashboard", roles: ["admin", "candidate"] as AppRole[] },
+    { to: "/interviewer-dashboard", label: "Interviewer Dashboard", roles: ["admin", "interviewer"] as AppRole[] },
+    { to: "/admin-dashboard", label: "Admin Dashboard", roles: ["admin"] as AppRole[] },
+    { to: "/tenders", label: "Tenders", roles: ["admin", "candidate"] as AppRole[] },
+    { to: "/companies", label: "Companies", roles: ["admin", "candidate"] as AppRole[] },
+    { to: "/offers", label: "Offers", roles: ["admin", "candidate"] as AppRole[] },
+    { to: "/time-tracking", label: "Time", roles: ["admin"] as AppRole[] },
+    { to: "/interior", label: "Interior", roles: ["admin"] as AppRole[] },
 ] as const;
+
+function parseRoleFromUserObject(): AppRole | null {
+    const raw = localStorage.getItem("user");
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw) as { role?: unknown };
+        const value = typeof parsed.role === "string" ? parsed.role.toLowerCase() : "";
+        if (value === "admin" || value === "hr" || value === "candidate" || value === "interviewer") {
+            return value;
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+function resolveRole(): AppRole | null {
+    return getUserRole() ?? parseRoleFromUserObject();
+}
 
 function navClass({ isActive }: { isActive: boolean }) {
     return cn(
@@ -24,9 +49,27 @@ function navClass({ isActive }: { isActive: boolean }) {
 
 export default function Navbar() {
     const navigate = useNavigate();
+    const [role, setRole] = useState<AppRole | null>(() => resolveRole());
+
+    useEffect(() => {
+        const refreshRole = () => setRole(resolveRole());
+        refreshRole();
+        window.addEventListener("storage", refreshRole);
+        window.addEventListener("focus", refreshRole);
+        return () => {
+            window.removeEventListener("storage", refreshRole);
+            window.removeEventListener("focus", refreshRole);
+        };
+    }, []);
+
+    const filteredNavItems = useMemo(() => {
+        if (!role) return navItems.filter((item) => item.to === "/");
+        return navItems.filter((item) => item.roles.includes(role));
+    }, [role]);
 
     const logout = () => {
         clearAuthStorage();
+        setRole(null);
         navigate("/login", { replace: true });
     };
 
@@ -44,7 +87,7 @@ export default function Navbar() {
                     className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     aria-label="Main"
                 >
-                    {navItems.map((item) => (
+                    {filteredNavItems.map((item) => (
                         <NavLink
                             key={item.to}
                             to={item.to}

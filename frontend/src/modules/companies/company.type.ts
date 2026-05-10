@@ -5,6 +5,7 @@ export interface Company {
     email: string;
     contact_person?: string;
     city: string;
+    company_type?: string;
 }
 
 
@@ -13,4 +14,5 @@ export interface CompanyPayload {
     email: string;
     contact_person?: string;
     city: string;
+    company_type: string;
 }

@@ -1,0 +1,13 @@
+{
+  "login": "Login",
+  "logout": "Logout",
+  "upload_cv": "Upload CV",
+  "interview": "Interview",
+  "dashboard": "Dashboard",
+  "hr": "HR",
+  "tenders": "Tenders",
+  "companies": "Companies",
+  "offers": "Offers",
+  "time_tracking": "Time Tracking",
+  "interior": "Interior Design"
+}

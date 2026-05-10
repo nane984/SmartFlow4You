@@ -14,4 +14,5 @@ export type CV = {
     job_post: number;
     score: number | null;
     processed: boolean;
+    status: "pending" | "accepted" | "rejected";
 };

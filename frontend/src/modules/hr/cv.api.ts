@@ -13,6 +13,16 @@ export async function getJobPostsForApplication(): Promise<JobPost[]> {
     return Array.isArray(res.data) ? res.data : [];
 }
 
+export async function getCvs(): Promise<CV[]> {
+    const res = await api.get<CV[]>("hr/cvs/");
+    return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function getJobPosts(): Promise<JobPost[]> {
+    const res = await api.get<JobPost[]>("hr/jobpost/");
+    return Array.isArray(res.data) ? res.data : [];
+}
+
 export function validateCvFileClient(file: File): string | null {
     if (file.size > MAX_CV_BYTES) {
         return "File is too large. Maximum size is 5 MB.";

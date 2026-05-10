@@ -16,6 +16,7 @@ const CompanyForm = () => {
         email: "",
         contact_person: "",
         city: "",
+        company_type: "contractor",
     });
 
     useEffect(() => {
@@ -26,10 +27,16 @@ const CompanyForm = () => {
 
     const loadCompany = async () => {
         const res = await getCompanyById(Number(id));
-        setData(res);
+        setData({
+            name: res.name,
+            email: res.email,
+            contact_person: res.contact_person ?? "",
+            city: res.city,
+            company_type: res.company_type ?? "contractor",
+        });
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setData({
             ...data,
             [e.target.name]: e.target.value,
@@ -56,6 +63,19 @@ const CompanyForm = () => {
             />
             <Card className="max-w-xl">
                 <form className="space-y-5" onSubmit={handleSubmit}>
+                    <Field label="Company type">
+                        <select
+                            className={controlClass}
+                            name="company_type"
+                            value={data.company_type}
+                            onChange={handleChange}
+                            required
+                        >
+                            <option value="investor">Investor</option>
+                            <option value="contractor">Contractor</option>
+                            <option value="supplier">Supplier</option>
+                        </select>
+                    </Field>
                     <Field label="Company name">
                         <input
                             className={controlClass}

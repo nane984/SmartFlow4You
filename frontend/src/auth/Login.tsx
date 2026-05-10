@@ -5,6 +5,8 @@ import Card from "../components/ui/Card";
 import Field from "../components/ui/Field";
 import Button from "../components/ui/Button";
 import { controlClass } from "../components/ui/inputStyles";
+import { setStoredRole } from "./authUtils";
+import type { AppRole } from "./roles";
 
 function safeInternalPath(value: string | null | undefined): string | null {
     if (!value || typeof value !== "string") return null;
@@ -23,6 +25,13 @@ export default function Login() {
     const location = useLocation();
     const [searchParams] = useSearchParams();
 
+    const roleHome = (role: AppRole | null): string => {
+        if (role === "admin") return "/admin-dashboard";
+        if (role === "hr") return "/hr-dashboard";
+        if (role === "interviewer") return "/interviewer-dashboard";
+        return "/candidate-dashboard";
+    };
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -33,12 +42,15 @@ export default function Login() {
             localStorage.setItem("access", res.data.access);
             localStorage.setItem("refresh", res.data.refresh);
 
+            const me = await api.get<{ role: AppRole }>("core/users/me/");
+            setStoredRole(me.data.role);
+
             const fromState = (location.state as { from?: string } | null)?.from;
             const fromQuery = searchParams.get("from");
             const target =
                 safeInternalPath(fromState) ||
                 safeInternalPath(fromQuery) ||
-                "/";
+                roleHome(me.data.role);
 
             navigate(target, { replace: true });
         } catch {

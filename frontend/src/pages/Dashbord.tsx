@@ -4,7 +4,7 @@ import PageHeader from "../components/ui/PageHeader";
 
 const tiles = [
     {
-        to: "/hr",
+        to: "/hr-dashboard",
         title: "HR & applications",
         body: "Submit CVs against open roles and manage interview assets.",
     },

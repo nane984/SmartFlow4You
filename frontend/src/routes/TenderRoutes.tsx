@@ -1,16 +1,14 @@
-import { Routes, Route } from "react-router-dom";
-import TenderList from "../modules/tenders/TenderList";
-import TenderForm from "../modules/tenders/TenderForm";
-import TenderDetail from "../modules/tenders/TenderDetail";
+import { Route, Routes } from "react-router-dom";
+import TenderCreate from "../pages/tenders/TenderCreate";
+import TenderDetail from "../pages/tenders/TenderDetail";
+import TenderList from "../pages/tenders/TenderList";
 
-const TenderRoutes = () => {
-  return (
-    <Routes>
-      <Route index element={<TenderList />} />
-      <Route path="new" element={<TenderForm />} />
-      <Route path=":id" element={<TenderDetail />} />
-    </Routes>
-  );
-};
-
-export default TenderRoutes;
+export default function TenderRoutes() {
+    return (
+        <Routes>
+            <Route index element={<TenderList />} />
+            <Route path="new" element={<TenderCreate />} />
+            <Route path=":id" element={<TenderDetail />} />
+        </Routes>
+    );
+}

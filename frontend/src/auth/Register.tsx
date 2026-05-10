@@ -28,7 +28,7 @@ const Register = () => {
         password2: "",
         first_name: "",
         last_name: "",
-        role: "employee",
+        role: "candidate",
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -161,8 +161,10 @@ const Register = () => {
                         value={form.role}
                         onChange={handleChange}
                     >
-                        <option value="employee">Employee</option>
-                        <option value="manager">Manager</option>
+                        <option value="candidate">Candidate</option>
+                        <option value="interviewer">Interviewer</option>
+                        <option value="hr">HR</option>
+                        <option value="admin">Admin</option>
                     </select>
                 </Field>
 
