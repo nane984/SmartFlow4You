@@ -188,9 +188,14 @@ export default function HrRecruitmentPanel() {
                         <span className="font-medium text-slate-800">{filterLabel}</span>
                     </p>
                 </div>
-                <LinkButton to="/hr/jobs" variant="secondary" size="sm">
-                    Create & edit jobs
-                </LinkButton>
+                <div className="flex flex-wrap gap-2">
+                    <LinkButton to="/hr/jobs" variant="secondary" size="sm">
+                        Job openings
+                    </LinkButton>
+                    <LinkButton to="/hr/jobs/new" variant="primary" size="sm">
+                        Create job
+                    </LinkButton>
+                </div>
             </div>
 
             <Card className="flex flex-wrap items-center gap-3 border-slate-200/90 p-4 shadow-sm">

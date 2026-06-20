@@ -89,7 +89,8 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "HR",
         roles: [...HR_STAFF_ROLES, ROLES.INTERVIEWER],
         items: [
-            { to: "/hr/jobs", label: "HR jobs", roles: HR_STAFF_ROLES },
+            { to: "/hr/jobs", label: "Job openings", roles: HR_STAFF_ROLES },
+            { to: "/hr/jobs/new", label: "Create job", roles: HR_STAFF_ROLES },
             {
                 to: "/interviewer-dashboard",
                 label: "Interviewer",

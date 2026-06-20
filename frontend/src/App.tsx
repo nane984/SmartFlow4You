@@ -24,7 +24,7 @@ import CandidateRoutes from "./routes/CandidateRoutes";
 import AccessDenied from "./pages/AccessDenied";
 import SupplierRequestsPage from "./pages/admin/SupplierRequestsPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
-import JobManagement from "./modules/jobs/JobManagement";
+import JobRoutes from "./routes/JobRoutes";
 import HrRoutes from "./routes/HrRoutes";
 import HrDashboard from "./modules/hr/HrDashboard";
 import {
@@ -81,7 +81,7 @@ function App() {
 
             <Route element={<RequireAccess domain={ACCESS_DOMAINS.HR} />}>
               <Route path="hr-dashboard" element={<HrDashboard />} />
-              <Route path="hr/jobs" element={<JobManagement />} />
+              <Route path="hr/jobs/*" element={<JobRoutes />} />
               <Route path="hr/*" element={<HrRoutes />} />
               <Route element={<RequireRole allowed={[ROLES.INTERVIEWER, ROLES.ADMIN]} />}>
                 <Route path="interviewer-dashboard" element={<InterviewerDashboardPage />} />
