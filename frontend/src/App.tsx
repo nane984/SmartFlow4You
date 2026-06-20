@@ -2,11 +2,14 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Login from "./auth/Login";
 import Register from "./auth/Register";
+import ConfirmEmailPage from "./pages/auth/ConfirmEmailPage";
 
 import RequireAuth from "./components/common/RequireAuth";
 import RequireAccess from "./components/common/RequireAccess";
 import RequireRole from "./components/common/RequireRole";
 import Layout from "./components/layout/Layout";
+import PublicLayout from "./components/layout/PublicLayout";
+import CandidateAreaLayout from "./components/layout/CandidateAreaLayout";
 import AuthShell from "./components/layout/AuthShell";
 
 import Home from "./pages/Home";
@@ -19,14 +22,17 @@ import WorkPackageRoutes from "./routes/WorkPackageRoutes";
 import SubmissionRoutes from "./routes/SubmissionRoutes";
 import CandidateRoutes from "./routes/CandidateRoutes";
 import AccessDenied from "./pages/AccessDenied";
+import SupplierRequestsPage from "./pages/admin/SupplierRequestsPage";
+import UserManagementPage from "./pages/admin/UserManagementPage";
 import JobManagement from "./modules/jobs/JobManagement";
+import HrRoutes from "./routes/HrRoutes";
+import HrDashboard from "./modules/hr/HrDashboard";
 import {
-  AdminDashboardPage,
   CandidateDashboardPage,
-  HRDashboardPage,
   InterviewerDashboardPage,
 } from "./pages/RoleDashboards";
 import { ACCESS_DOMAINS } from "./auth/accessConfig";
+import { ROLES } from "./auth/roles";
 
 function App() {
   return (
@@ -41,6 +47,14 @@ function App() {
           }
         />
         <Route
+          path="/confirm-email"
+          element={
+            <AuthShell subtitle="Activate your account">
+              <ConfirmEmailPage />
+            </AuthShell>
+          }
+        />
+        <Route
           path="/register"
           element={
             <AuthShell subtitle="Create your SmartFlow account">
@@ -49,29 +63,38 @@ function App() {
           }
         />
 
-        {/* Global app shell — navbar + page content on every in-app route */}
-        <Route element={<Layout />}>
+        {/* Public marketing — candidate portal uses CandidateAreaLayout below */}
+        <Route element={<PublicLayout />}>
           <Route index element={<Home />} />
           <Route path="access-denied" element={<AccessDenied />} />
-          <Route path="candidate/*" element={<CandidateRoutes />} />
+        </Route>
 
-          <Route element={<RequireAuth />}>
+        {/* Candidate portal — sidebar when logged in, public navbar for guests */}
+        <Route element={<CandidateAreaLayout />}>
+          <Route path="candidate/*" element={<CandidateRoutes />} />
+        </Route>
+
+        {/* Private app — sidebar + topbar */}
+        <Route element={<RequireAuth />}>
+          <Route element={<Layout />}>
             <Route path="dashboard" element={<Dashboard />} />
 
             <Route element={<RequireAccess domain={ACCESS_DOMAINS.HR} />}>
-              <Route path="hr-dashboard" element={<HRDashboardPage />} />
+              <Route path="hr-dashboard" element={<HrDashboard />} />
               <Route path="hr/jobs" element={<JobManagement />} />
-              <Route element={<RequireRole allowed={["interviewer", "admin"]} />}>
+              <Route path="hr/*" element={<HrRoutes />} />
+              <Route element={<RequireRole allowed={[ROLES.INTERVIEWER, ROLES.ADMIN]} />}>
                 <Route path="interviewer-dashboard" element={<InterviewerDashboardPage />} />
               </Route>
             </Route>
 
-            <Route element={<RequireRole allowed={["candidate"]} />}>
+            <Route element={<RequireRole allowed={[ROLES.CANDIDATE, ROLES.ADMIN]} />}>
               <Route path="candidate-dashboard" element={<CandidateDashboardPage />} />
             </Route>
 
-            <Route element={<RequireRole allowed={["admin"]} />}>
-              <Route path="admin-dashboard" element={<AdminDashboardPage />} />
+            <Route element={<RequireRole allowed={[ROLES.ADMIN]} />}>
+              <Route path="admin/supplier-requests" element={<SupplierRequestsPage />} />
+              <Route path="admin/users" element={<UserManagementPage />} />
             </Route>
 
             <Route element={<RequireAccess domain={ACCESS_DOMAINS.TENDERS} />}>

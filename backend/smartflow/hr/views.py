@@ -1,20 +1,26 @@
+import logging
+
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .application_workflow import apply_application_status_action
 from .models import Answer, Candidate, CV, InterviewSession, JobPost, Question, VideoSubmission
 from .permissions import (
     IsCandidate,
     IsHRUser,
     IsInterviewer,
+    IsInterviewerOrHRStaff,
     IsStaffUser,
 )
 from .serializer import (
     AnswerReviewSerializer,
+    ApplicationStatusActionSerializer,
     CandidateSerializer,
     CVSerializer,
     InterviewSessionSerializer,
@@ -24,12 +30,14 @@ from .serializer import (
     VideoUploadSerializer,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def _interview_sessions_for_user(user):
     qs = InterviewSession.objects.select_related("cv", "cv__job_post", "interviewer").order_by(
         "-start_time", "-id"
     )
-    if user.role in ("admin", "hr"):
+    if user.role in ("admin", "hr", "hr_admin"):
         return qs
     if user.role == "interviewer":
         return qs.filter(interviewer=user)
@@ -76,7 +84,7 @@ class CVViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return CV.objects.none()
-        if user.role in ("admin", "hr"):
+        if user.role in ("admin", "hr", "hr_admin"):
             return qs
         return qs.filter(submitted_by=user)
 
@@ -100,7 +108,7 @@ class InterviewSessionViewSet(viewsets.ModelViewSet):
 
     def _can_control_session(self, request, session) -> bool:
         return bool(
-            request.user.role in ("admin", "hr")
+            request.user.role in ("admin", "hr", "hr_admin")
             or (session.cv.submitted_by_id and session.cv.submitted_by_id == request.user.id)
         )
 
@@ -265,8 +273,8 @@ class CandidateViewSet(viewsets.ModelViewSet):
 class JobAccessViewSet(viewsets.ModelViewSet):
     """
     Alias endpoints:
-    - GET /api/jobs/ public
-    - POST /api/jobs/ HR + ADMIN
+    - GET /api/jobs/ — published jobs for public; all jobs for HR staff
+    - POST/PATCH /api/jobs/ — HR + ADMIN
     """
 
     queryset = JobPost.objects.all().order_by("-id")
@@ -278,31 +286,48 @@ class JobAccessViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated(), IsHRUser()]
 
+    def get_queryset(self):
+        qs = JobPost.objects.all().order_by("-id")
+        if self.action in ("list", "retrieve"):
+            user = self.request.user
+            if user.is_authenticated and user_has_hr_access(user):
+                return qs
+            return qs.filter(posting_status=JobPost.PostingStatus.PUBLISHED)
+        return qs
+
 
 class ApplicationViewSet(viewsets.ModelViewSet):
     """
     Job applications (JobApplication):
     - POST /api/applications/ — public with candidate_* fields or authenticated candidate
     - GET /api/applications/ — HR + ADMIN
+    - GET /api/applications/mine/ — authenticated candidate's own applications
+    - POST /api/applications/{id}/status/ — HR status workflow
     """
 
     queryset = CV.objects.select_related("job_post", "candidate").all().order_by("-submitted_at", "-id")
     serializer_class = CVSerializer
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "post", "head", "options"]
 
     def get_permissions(self):
         if self.action == "create":
             return [permissions.AllowAny()]
-        if self.action == "list":
+        if self.action == "mine":
+            return [permissions.IsAuthenticated()]
+        if self.action in ("list", "retrieve", "update_status"):
             return [permissions.IsAuthenticated(), IsHRUser()]
         return [permissions.IsAuthenticated(), IsHRUser()]
 
     def get_queryset(self):
-        qs = CV.objects.select_related("job_post").all().order_by("-id")
-        if self.request.user.role in ("admin", "hr"):
+        qs = CV.objects.select_related("job_post", "candidate").all().order_by("-submitted_at", "-id")
+        user = self.request.user
+        if user_has_hr_access(user):
             return qs
-        return qs.filter(submitted_by=self.request.user)
+        if self.action == "mine":
+            return applications_for_user(user)
+        return qs.filter(submitted_by=user)
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -310,6 +335,50 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             serializer.save(submitted_by=user)
         else:
             serializer.save(submitted_by=None)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            logger.warning("Application create validation failed: %s", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=["get"], url_path="mine")
+    def mine(self, request):
+        qs = applications_for_user(request.user)
+        return Response(CVSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=["post"], url_path="status")
+    def update_status(self, request, pk=None):
+        application = self.get_object()
+        payload = ApplicationStatusActionSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        try:
+            updated = apply_application_status_action(application, payload.validated_data["action"])
+        except ValidationError as exc:
+            detail = exc.detail
+            if isinstance(detail, dict) and "detail" in detail:
+                return Response({"detail": detail["detail"]}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+        return Response(CVSerializer(updated).data)
+
+
+def user_has_hr_access(user) -> bool:
+    role = getattr(user, "role", None)
+    return role in ("admin", "hr", "hr_admin")
+
+
+def applications_for_user(user):
+    qs = CV.objects.select_related("job_post", "candidate").order_by("-submitted_at", "-id")
+    if not user or not user.is_authenticated:
+        return qs.none()
+    email = (getattr(user, "email", None) or "").strip()
+    filters = Q(submitted_by=user)
+    if email:
+        filters |= Q(candidate__email__iexact=email)
+    return qs.filter(filters)
 
 
 class InterviewAccessViewSet(viewsets.ModelViewSet):
@@ -327,7 +396,7 @@ class InterviewAccessViewSet(viewsets.ModelViewSet):
         if self.action in ("create",):
             return [permissions.IsAuthenticated(), IsHRUser()]
         if self.action in ("list", "retrieve"):
-            return [permissions.IsAuthenticated(), IsInterviewer()]
+            return [permissions.IsAuthenticated(), IsInterviewerOrHRStaff()]
         return [permissions.IsAuthenticated(), IsHRUser()]
 
     def get_queryset(self):
@@ -337,6 +406,6 @@ class InterviewAccessViewSet(viewsets.ModelViewSet):
             return qs
         if user.role == "interviewer":
             return qs.filter(interviewer=user)
-        if user.role == "hr":
+        if user.role in ("hr", "hr_admin"):
             return qs
         return InterviewSession.objects.none()

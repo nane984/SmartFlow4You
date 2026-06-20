@@ -12,7 +12,7 @@ export default function AuthShell({ children, subtitle }: AuthShellProps) {
         <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900">
             <header className="border-b border-white/10 px-4 py-4 sm:px-8">
                 <Link
-                    to="/login"
+                    to="/"
                     className="text-lg font-semibold tracking-tight text-white no-underline hover:text-brand-100"
                 >
                     SmartFlow

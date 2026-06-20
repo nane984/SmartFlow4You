@@ -1,90 +1,72 @@
-import axios from "../../api/api"
-import type { Offer, OfferPayload } from "./offer.types"
-import type { ApiPage } from "../../components/common/Pagenation.type"
+import api from "../../api/api";
+import type { ApiPage } from "../../components/common/Pagenation.type";
+import { formatPriceForApi } from "../../util/parsePriceInput";
+import type { OfferCreatePayload, OfferUpdatePayload, SupplierOffer } from "./offer.types";
 
-/**
- * Tender offers API.
- * List: unwraps either a plain array or a DRF paginated `{ results }` body.
- * Create/update: `FormData` + multipart when a `file` is included.
- */
-export const getOffers = async (): Promise<Offer[]> => {
-    try {
-        const res = await axios.get<ApiPage<Offer> | Offer[]>("/offers/");
-
-        if (Array.isArray(res.data)) {
-            return res.data;
-        }
-
-        if ("results" in res.data && Array.isArray(res.data.results)) {
-            return res.data.results;
-        }
-
-        return [];
-    }catch (error) {
-        console.error("GET OFFER ERROR:", error);
-        return [];
+function unwrapList<T>(data: ApiPage<T> | T[]): T[] {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object" && "results" in data && Array.isArray(data.results)) {
+        return data.results;
     }
+    return [];
 }
 
-export const getOfferById = async (id: Number): Promise<Offer> => {
-    try{
-        const res = await axios.get<Offer>(`/offers/${id}/`)
-        return res.data
-    }catch(error){
-        console.error(`GET OFFER ${id} ERROR:`, error);
-        throw error;
-    }
+export async function getOffers(tenderId?: number): Promise<SupplierOffer[]> {
+    const url =
+        tenderId != null && tenderId > 0 ? `/offers/?tender=${tenderId}` : "/offers/";
+    const res = await api.get<ApiPage<SupplierOffer> | SupplierOffer[]>(url);
+    return unwrapList(res.data);
 }
 
-export const createOffer = async (data: OfferPayload): Promise<Offer> => {
-    try{
-        const formData = new FormData();
-        
-        formData.append("tender", String(data.tender));
-        formData.append("price", String(data.price));
-        if (data.file){
-            formData.append("file", data.file);
-        };
+export async function getOfferById(id: number): Promise<SupplierOffer> {
+    const res = await api.get<SupplierOffer>(`/offers/${id}/`);
+    return res.data;
+}
 
-        const res = await axios.post<Offer>("/offers/", formData,{
-            headers: { "Content-Type": "multipart/form-data" },
+export async function createOffer(
+    data: OfferCreatePayload,
+    document: File | null
+): Promise<SupplierOffer> {
+    const fd = new FormData();
+    fd.append("tender_id", String(data.tender_id));
+    fd.append("supplier_id", String(data.supplier_id));
+    if (data.total_amount != null && Number.isFinite(data.total_amount)) {
+        fd.append("total_amount", formatPriceForApi(data.total_amount));
+    }
+    if (data.currency) fd.append("currency", data.currency);
+    if (data.notes?.trim()) fd.append("notes", data.notes.trim());
+    if (document) fd.append("document", document);
+
+    if (import.meta.env.DEV) {
+        console.log("[createOffer] payload", {
+            tender_id: data.tender_id,
+            supplier_id: data.supplier_id,
+            total_amount: data.total_amount ?? null,
+            file: document?.name ?? null,
         });
-        
-        return res.data;
-
-    }catch(error){
-        console.error(`POST OFFER ERROR:`, error);
-        throw error;
     }
-};
 
-export const updateOffer = async (id: number, data: OfferPayload): Promise<Offer> => {
-    try{
-        const formData = new FormData();
-        formData.append("tender", String(data.tender));
-        formData.append("price", String(data.price));
-        if(data.file){
-            formData.append("file", data.file);
-        }
-
-        const res = await axios.put<Offer>(`/offers/${id}/`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        return res.data
-
-    }catch(error){
-        console.error(`PUT OFFER ERROR:`, error);
-        throw error;
-    }
+    const res = await api.post<SupplierOffer>("/offers/", fd);
+    return res.data;
 }
 
-export const deleteOffer = async (id: number): Promise<void> => {
-    try{
-        await axios.delete(`/offers/${id}/`);
-
-    }catch(error){
-        console.error(`DELETE OFFER ERROR:`, error);
-        throw error;
+export async function updateOffer(
+    id: number,
+    data: OfferUpdatePayload,
+    document: File | null
+): Promise<SupplierOffer> {
+    const fd = new FormData();
+    if (data.total_amount != null && Number.isFinite(data.total_amount)) {
+        fd.append("total_amount", formatPriceForApi(data.total_amount));
     }
+    if (data.currency) fd.append("currency", data.currency);
+    if (data.notes !== undefined) fd.append("notes", data.notes);
+    if (document) fd.append("document", document);
+
+    const res = await api.put<SupplierOffer>(`/offers/${id}/`, fd);
+    return res.data;
+}
+
+export async function deleteOffer(id: number): Promise<void> {
+    await api.delete(`/offers/${id}/`);
 }

@@ -8,6 +8,24 @@ from .models import Answer, Candidate, CV, InterviewSession, JobPost, Question, 
 
 ALLOWED_CV_EXTENSIONS = frozenset({".pdf", ".doc", ".docx"})
 
+APPLICATION_STATUS_LABELS = {
+    "submitted": "Application received",
+    "reviewed": "CV reviewed",
+    "interview": "Interview stage",
+    "accepted": "Selected for position",
+    "rejected": "Not selected",
+}
+
+
+class ApplicationStatusActionSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(
+        choices=(
+            ("mark_reviewed", "Mark as reviewed"),
+            ("move_next", "Move to next step"),
+            ("reject", "Not selected for this position"),
+        )
+    )
+
 
 class CandidateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,11 +61,17 @@ class JobPostSerializer(serializers.ModelSerializer):
 class CVSerializer(serializers.ModelSerializer):
     """Job application (JobApplication) — CV file upload."""
 
-    job_posting = serializers.PrimaryKeyRelatedField(source="job_post", queryset=JobPost.objects.all())
+    job_posting = serializers.PrimaryKeyRelatedField(
+        source="job_post",
+        queryset=JobPost.objects.all(),
+        write_only=True,
+    )
     candidate_email = serializers.EmailField(write_only=True, required=False)
     candidate_first_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     candidate_last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     candidate_name = serializers.SerializerMethodField()
+    job_title = serializers.CharField(source="job_post.job_title", read_only=True)
+    status_label = serializers.SerializerMethodField()
 
     class Meta:
         model = CV
@@ -55,8 +79,9 @@ class CVSerializer(serializers.ModelSerializer):
             "id",
             "file",
             "aplicant_name",
-            "job_post",
             "job_posting",
+            "job_post",
+            "job_title",
             "candidate",
             "candidate_email",
             "candidate_first_name",
@@ -66,9 +91,19 @@ class CVSerializer(serializers.ModelSerializer):
             "score",
             "processed",
             "status",
+            "status_label",
             "submitted_at",
         )
         read_only_fields = ("id", "score", "processed", "submitted_by", "submitted_at", "candidate")
+
+    def get_status_label(self, obj: CV) -> str:
+        return APPLICATION_STATUS_LABELS.get(obj.status, obj.status.replace("_", " ").title())
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["job_posting"] = instance.job_post_id
+        data["job_post"] = instance.job_post_id
+        return data
 
     def get_candidate_name(self, obj: CV) -> str:
         if obj.candidate_id:
@@ -98,6 +133,12 @@ class CVSerializer(serializers.ModelSerializer):
         return candidate
 
     def create(self, validated_data):
+        request = self.context.get("request")
+        if request and getattr(request, "user", None) and request.user.is_authenticated:
+            user = request.user
+            validated_data.setdefault("candidate_email", user.email)
+            validated_data.setdefault("candidate_first_name", user.first_name or "")
+            validated_data.setdefault("candidate_last_name", user.last_name or "")
         candidate = self._resolve_candidate(validated_data)
         if candidate:
             validated_data["candidate"] = candidate

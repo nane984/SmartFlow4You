@@ -9,18 +9,31 @@ import { controlClass } from "../../components/ui/inputStyles";
 import {
     candidateDisplayName,
     getCandidateProfile,
+    resolveApplyProfile,
 } from "../../modules/candidate/candidateProfile";
-import { applyToJob, getJobById, type Job } from "../../modules/jobs/jobs.api";
+import { getStoredUser, isAppAuthenticated } from "../../auth/accessUtils";
+import { applyToJob, getJobById, getMyApplications, type Job, type JobApplication } from "../../modules/jobs/jobs.api";
+import { formatApiErrors } from "../../util/formatApiErrors";
+import {
+    APPLICATION_STATUS_CANDIDATE_HINTS,
+    applicationStatusBadgeClass,
+    applicationStatusLabel,
+    type ApplicationStatus,
+} from "../../modules/hr/applicationStatus";
 
 export default function CandidateJobApplyPage() {
     const { id } = useParams<{ id: string }>();
     const jobId = useMemo(() => Number.parseInt(id ?? "", 10), [id]);
 
     const [job, setJob] = useState<Job | null>(null);
+    const [existingApplication, setExistingApplication] = useState<JobApplication | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const profile = getCandidateProfile();
+    const profile = resolveApplyProfile(
+        isAppAuthenticated() ? getStoredUser() : null,
+        getCandidateProfile()
+    );
     const [applicantName, setApplicantName] = useState(() => candidateDisplayName(profile));
     const [cvFile, setCvFile] = useState<File | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -37,7 +50,15 @@ export default function CandidateJobApplyPage() {
             setLoading(true);
             setError(null);
             try {
-                setJob(await getJobById(jobId));
+                const loadedJob = await getJobById(jobId);
+                setJob(loadedJob);
+                if (isAppAuthenticated()) {
+                    const mine = await getMyApplications().catch(() => []);
+                    const match = mine.find(
+                        (app) => (app.job_post ?? app.job_posting) === loadedJob.id
+                    );
+                    setExistingApplication(match ?? null);
+                }
             } catch (e) {
                 setError(e instanceof Error ? e.message : "Failed to load job.");
             } finally {
@@ -64,8 +85,18 @@ export default function CandidateJobApplyPage() {
             });
             setSubmitMessage("Application submitted successfully.");
             setCvFile(null);
-        } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : "Failed to submit application.");
+            if (isAppAuthenticated()) {
+                const mine = await getMyApplications().catch(() => []);
+                const match = mine.find((app) => (app.job_post ?? app.job_posting) === job.id);
+                setExistingApplication(match ?? null);
+            }
+        } catch (err: unknown) {
+            const ax = err as { response?: { data?: unknown } };
+            setSubmitError(
+                ax.response?.data
+                    ? formatApiErrors(ax.response.data)
+                    : "Failed to submit application."
+            );
         } finally {
             setSubmitting(false);
         }
@@ -102,12 +133,16 @@ export default function CandidateJobApplyPage() {
                 }
             />
 
-            {!profile && (
+            {!profile && !isAppAuthenticated() && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                     <Link to="/candidate" className="font-medium underline">
-                        Create your profile
+                        Create a guest profile
                     </Link>{" "}
-                    first so we can pre-fill your application.
+                    or{" "}
+                    <Link to="/login" className="font-medium underline">
+                        sign in
+                    </Link>{" "}
+                    so we can pre-fill your application.
                 </div>
             )}
 
@@ -124,6 +159,28 @@ export default function CandidateJobApplyPage() {
 
             <Card className="space-y-4">
                 <h2 className="text-base font-semibold text-slate-900">Apply</h2>
+                {existingApplication ? (
+                    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-slate-900">Your application status</span>
+                            <span className={applicationStatusBadgeClass(existingApplication.status)}>
+                                {existingApplication.status_label ??
+                                    applicationStatusLabel(existingApplication.status)}
+                            </span>
+                        </div>
+                        <p className="text-sm text-slate-700">
+                            {APPLICATION_STATUS_CANDIDATE_HINTS[
+                                existingApplication.status as ApplicationStatus
+                            ] ?? "Your application is being processed by HR."}
+                        </p>
+                        {existingApplication.processed ? (
+                            <p className="text-xs text-slate-500">HR has processed your application.</p>
+                        ) : (
+                            <p className="text-xs text-slate-500">Waiting for HR review.</p>
+                        )}
+                    </div>
+                ) : (
+                <>
                 {submitMessage && (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                         {submitMessage}
@@ -161,6 +218,8 @@ export default function CandidateJobApplyPage() {
                         {submitting ? "Submitting…" : "Submit application"}
                     </Button>
                 </form>
+                </>
+                )}
             </Card>
         </div>
     );

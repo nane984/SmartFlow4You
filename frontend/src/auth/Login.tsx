@@ -5,9 +5,9 @@ import Card from "../components/ui/Card";
 import Field from "../components/ui/Field";
 import Button from "../components/ui/Button";
 import { controlClass } from "../components/ui/inputStyles";
-import { clearMockSession, roleHomePath } from "./accessUtils";
+import { clearMockSession, roleHomePath, setStoredUser, type StoredUser } from "./accessUtils";
 import { setStoredRole } from "./authUtils";
-import type { AppRole } from "./roles";
+import { normalizeRole } from "./roles";
 
 function safeInternalPath(value: string | null | undefined): string | null {
     if (!value || typeof value !== "string") return null;
@@ -37,7 +37,8 @@ export default function Login() {
             localStorage.setItem("access", res.data.access);
             localStorage.setItem("refresh", res.data.refresh);
 
-            const me = await api.get<{ role: AppRole }>("core/users/me/");
+            const me = await api.get<StoredUser>("me/");
+            setStoredUser(me.data);
             setStoredRole(me.data.role);
 
             const fromState = (location.state as { from?: string } | null)?.from;
@@ -45,7 +46,7 @@ export default function Login() {
             const target =
                 safeInternalPath(fromState) ||
                 safeInternalPath(fromQuery) ||
-                roleHomePath(me.data.role);
+                roleHomePath(normalizeRole(me.data.role));
 
             navigate(target, { replace: true });
         } catch {

@@ -5,6 +5,7 @@ from typing import cast
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from core.models import User
 
 
 class Company(models.Model):
@@ -360,6 +361,19 @@ class SupplierOffer(models.Model):
         RFQ,
         on_delete=models.CASCADE,
         related_name="supplier_offers",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="supplier_offers_submitted",
+    )
+    document = models.FileField(
+        upload_to="offers/documents/%Y/%m/",
+        blank=True,
+        null=True,
+        help_text="Uploaded offer document (PDF, Excel, etc.).",
     )
     submitted_at = models.DateTimeField(auto_now_add=True)
     valid_until = models.DateField(null=True, blank=True)

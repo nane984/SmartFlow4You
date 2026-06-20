@@ -1,16 +1,18 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { getUserRole } from "../../auth/authUtils";
-import type { AppRole } from "../../auth/roles"
+import { getEffectiveRole } from "../../auth/accessUtils";
+import type { AppRole } from "../../auth/roles";
+import { roleInList } from "../../auth/roles";
 
 type RequireRoleProps = {
     allowed: AppRole[];
 };
 
+/** Role gate — uses canonical + legacy role aliases from /api/me/ or mock session. */
 export default function RequireRole({ allowed }: RequireRoleProps) {
     const location = useLocation();
-    const role = getUserRole();
+    const role = getEffectiveRole();
 
-    if (!role || !allowed.includes(role)) {
+    if (!roleInList(role, allowed)) {
         return (
             <Navigate
                 to="/access-denied"

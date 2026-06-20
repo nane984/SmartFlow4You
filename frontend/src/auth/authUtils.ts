@@ -1,6 +1,4 @@
-import { ROLES, type AppRole } from "./roles";
-
-
+import { normalizeRole, type AppRole } from "./roles";
 
 /** Clears tokens stored by the login flow. */
 export function clearAuthStorage(): void {
@@ -38,27 +36,15 @@ export function isAccessTokenValid(token: string | null | undefined): boolean {
     return payload.exp * 1000 > Date.now() - skewMs;
 }
 
-
-// proveriti da li treba da se brise
 export function setStoredRole(role: string | null | undefined): void {
-    if (!role) {
+    const normalized = normalizeRole(role);
+    if (!normalized) {
         localStorage.removeItem("role");
         return;
     }
-    localStorage.setItem("role", role);
+    localStorage.setItem("role", normalized);
 }
 
 export function getUserRole(): AppRole | null {
-    const role = localStorage.getItem("role")?.toLowerCase();
-
-    if (
-        role === ROLES.ADMIN ||
-        role === ROLES.INVESTOR ||
-        role === ROLES.HR ||
-        role === ROLES.CANDIDATE ||
-        role === ROLES.INTERVIEWER
-    ) {
-        return role;
-    }
-    return null;
+    return normalizeRole(localStorage.getItem("role"));
 }

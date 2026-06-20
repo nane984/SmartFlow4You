@@ -1,43 +1,35 @@
+"""Re-export core RBAC permissions for HR module (Step 3)."""
+
 from rest_framework import permissions
 
+from core.permissions import IsAdmin, IsCandidate, IsHRStaff
+from core.roles import ROLE_ADMIN, ROLE_INTERVIEWER_LEGACY, user_has_role
 
-class IsAdminUserCustom(permissions.BasePermission):
-    """Only ADMIN role."""
-
-    def has_permission(self, request, view):
-        user = request.user
-        return bool(user and user.is_authenticated and user.role == "admin")
-
-
-class IsHRUser(permissions.BasePermission):
-    """HR + ADMIN."""
-
-    def has_permission(self, request, view):
-        user = request.user
-        return bool(user and user.is_authenticated and user.role in ("hr", "admin"))
-
-
-class IsCandidate(permissions.BasePermission):
-    """Only CANDIDATE role."""
-
-    def has_permission(self, request, view):
-        user = request.user
-        return bool(user and user.is_authenticated and user.role == "candidate")
+IsAdminUserCustom = IsAdmin
+IsHRUser = IsHRStaff
+IsStaffUser = IsHRStaff
 
 
 class IsInterviewer(permissions.BasePermission):
-    """INTERVIEWER + ADMIN."""
+    """Interviewer + admin (legacy role string)."""
 
-    def has_permission(self, request, view):
+    message = "Interviewer access required."
+
+    def has_permission(self, request, view) -> bool:
         user = request.user
-        return bool(user and user.is_authenticated and user.role in ("interviewer", "admin"))
+        if not user or not user.is_authenticated:
+            return False
+        if user_has_role(user, frozenset({ROLE_ADMIN})):
+            return True
+        return getattr(user, "role", None) == ROLE_INTERVIEWER_LEGACY
 
 
-class IsStaffUser(permissions.BasePermission):
-    """Backwards-compatible: HR + ADMIN."""
+class IsInterviewerOrHRStaff(permissions.BasePermission):
+    """Interviewer, HR staff, or admin."""
 
-    message = "Staff privileges required."
+    message = "HR or interviewer access required."
 
-    def has_permission(self, request, view):
-        user = request.user
-        return bool(user and user.is_authenticated and user.role in ("hr", "admin"))
+    def has_permission(self, request, view) -> bool:
+        return IsHRStaff().has_permission(request, view) or IsInterviewer().has_permission(
+            request, view
+        )

@@ -112,8 +112,8 @@ export default function CandidateDetail() {
             <Card>
                 <p className="text-sm text-rose-700">{error ?? "Candidate CV not found."}</p>
                 <div className="mt-4">
-                    <LinkButton to="/hr/dashboard" variant="secondary" size="sm">
-                        Back to HR Dashboard
+                    <LinkButton to="/dashboard" variant="secondary" size="sm">
+                        Back to dashboard
                     </LinkButton>
                 </div>
             </Card>
@@ -126,8 +126,8 @@ export default function CandidateDetail() {
                 title="Candidate Detail"
                 description="Candidate profile with sessions, submitted videos, and answer review."
                 actions={
-                    <LinkButton to="/hr/dashboard" variant="secondary" size="sm">
-                        Back to HR Dashboard
+                    <LinkButton to="/dashboard" variant="secondary" size="sm">
+                        Back to dashboard
                     </LinkButton>
                 }
             />

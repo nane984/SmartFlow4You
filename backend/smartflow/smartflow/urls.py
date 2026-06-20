@@ -20,9 +20,13 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from core.views import MeAPIView, CandidateProfileAPIView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
+    path('api/me/', MeAPIView.as_view(), name='api-me'),
+    path('api/me/candidate-profile/', CandidateProfileAPIView.as_view(), name='api-me-candidate-profile'),
     path('api/core/', include('core.urls')),
     path('api/', include('tenders.urls')),
     path('api/', include('hr.role_urls')),

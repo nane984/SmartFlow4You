@@ -272,15 +272,136 @@ class TenderSerializer(serializers.ModelSerializer):
 
 
 class RFQSerializer(serializers.ModelSerializer):
+    tender_title = serializers.CharField(source="tender.title", read_only=True)
+    supplier_name = serializers.CharField(source="supplier.name", read_only=True)
+
     class Meta:
         model = RFQ
         fields = "__all__"
 
 
 class SupplierOfferSerializer(serializers.ModelSerializer):
+    tender = serializers.IntegerField(source="rfq.tender_id", read_only=True)
+    tender_title = serializers.CharField(source="rfq.tender.title", read_only=True)
+    supplier = serializers.IntegerField(source="rfq.supplier_id", read_only=True)
+    supplier_name = serializers.CharField(source="rfq.supplier.name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.username", read_only=True)
+    tender_id = serializers.PrimaryKeyRelatedField(
+        queryset=Tender.objects.all(),
+        write_only=True,
+        required=False,
+    )
+    supplier_id = serializers.PrimaryKeyRelatedField(
+        queryset=Company.objects.filter(company_type=Company.CompanyType.SUPPLIER),
+        write_only=True,
+        required=False,
+    )
+
     class Meta:
         model = SupplierOffer
-        fields = "__all__"
+        fields = (
+            "id",
+            "rfq",
+            "tender",
+            "tender_title",
+            "supplier",
+            "supplier_name",
+            "tender_id",
+            "supplier_id",
+            "created_by",
+            "created_by_name",
+            "document",
+            "submitted_at",
+            "valid_until",
+            "currency",
+            "notes",
+            "total_amount",
+        )
+        read_only_fields = ("submitted_at", "created_by")
+        extra_kwargs = {
+            "rfq": {"required": False},
+            "total_amount": {"required": False, "allow_null": True},
+            "document": {"required": False, "allow_null": True},
+            "notes": {"required": False, "allow_blank": True},
+            "currency": {"required": False},
+            "valid_until": {"required": False, "allow_null": True},
+        }
+
+    def validate(self, attrs: dict) -> dict:
+        tender = attrs.pop("tender_id", None)
+        supplier = attrs.pop("supplier_id", None)
+        rfq = attrs.get("rfq")
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+
+        if rfq is None:
+            if tender is None or supplier is None:
+                raise serializers.ValidationError(
+                    "Provide rfq or both tender_id and supplier_id."
+                )
+            rfq, _ = RFQ.objects.get_or_create(
+                tender=tender,
+                supplier=supplier,
+                defaults={"status": RFQ.Status.SENT},
+            )
+            attrs["rfq"] = rfq
+        else:
+            tender = tender or rfq.tender
+            supplier = supplier or rfq.supplier
+
+        if user and getattr(user, "is_authenticated", False):
+            from core.roles import is_procurement_staff, is_supplier_user
+            from .access import (
+                get_user_company_id,
+                supplier_may_access_tender,
+                supplier_may_use_company,
+            )
+
+            resolved_tender_id = getattr(tender, "pk", None) or getattr(
+                attrs["rfq"].tender, "pk", None
+            )
+            resolved_supplier_id = getattr(supplier, "pk", None) or getattr(
+                attrs["rfq"].supplier, "pk", None
+            )
+
+            if is_supplier_user(user) and not is_procurement_staff(user):
+                own_company_id = get_user_company_id(user)
+                if not own_company_id:
+                    raise serializers.ValidationError(
+                        "Supplier account has no linked company."
+                    )
+                if resolved_supplier_id != own_company_id:
+                    raise serializers.ValidationError(
+                        "You can only submit offers for your own company."
+                    )
+                if not supplier_may_access_tender(user, resolved_tender_id):
+                    raise serializers.ValidationError(
+                        "You are not assigned to this tender."
+                    )
+            elif not is_procurement_staff(user):
+                raise serializers.ValidationError(
+                    "You do not have permission to submit offers."
+                )
+            elif resolved_supplier_id and not supplier_may_use_company(
+                user, resolved_supplier_id
+            ):
+                raise serializers.ValidationError(
+                    {"supplier_id": "Invalid supplier for this account."}
+                )
+
+        return attrs
+
+    def validate_total_amount(self, value):
+        if value in (None, ""):
+            return None
+        return value
+
+    def to_representation(self, instance: SupplierOffer) -> dict[str, Any]:
+        data = super().to_representation(instance)
+        absolute = _absolute_media_url(self.context.get("request"), instance.document)
+        if absolute:
+            data["document"] = absolute
+        return data
 
 
 class OfferItemSerializer(serializers.ModelSerializer):

@@ -17,6 +17,7 @@ export type Job = {
     job_created_by: number | null;
     job_published: boolean;
     job_published_at: string | null;
+    posting_status?: "draft" | "published" | "closed";
 };
 
 export type CreateJobPayload = {
@@ -37,6 +38,55 @@ export type CreateJobPayload = {
 export async function getJobs(): Promise<Job[]> {
     const res = await api.get<Job[]>("jobs/");
     return Array.isArray(res.data) ? res.data : [];
+}
+
+/** HR — all job postings including inactive/draft. */
+export async function getAllJobsForHr(): Promise<Job[]> {
+    const res = await api.get<Job[]>("hr/jobpost/");
+    return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function updateJobPostingStatus(
+    id: number,
+    posting_status: "draft" | "published" | "closed"
+): Promise<Job> {
+    const res = await api.patch<Job>(`jobs/${id}/`, { posting_status });
+    return res.data;
+}
+
+export type JobApplication = {
+    id: number;
+    file: string;
+    aplicant_name: string;
+    job_post?: number;
+    job_posting?: number;
+    job_title?: string;
+    score: number | null;
+    processed: boolean;
+    status: "submitted" | "reviewed" | "interview" | "accepted" | "rejected" | string;
+    status_label?: string;
+    submitted_at?: string | null;
+    candidate_name?: string;
+};
+
+/** HR staff — all job applications (CV uploads). */
+export async function getApplications(): Promise<JobApplication[]> {
+    const res = await api.get<JobApplication[]>("applications/");
+    return Array.isArray(res.data) ? res.data : [];
+}
+
+/** Authenticated candidate — own applications. */
+export async function getMyApplications(): Promise<JobApplication[]> {
+    const res = await api.get<JobApplication[]>("applications/mine/");
+    return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function updateApplicationStatus(
+    id: number,
+    action: "mark_reviewed" | "move_next" | "reject"
+): Promise<JobApplication> {
+    const res = await api.post<JobApplication>(`applications/${id}/status/`, { action });
+    return res.data;
 }
 
 export async function getJobById(id: number): Promise<Job> {
@@ -66,7 +116,7 @@ export type ApplyToJobPayload = {
 /** Public or authenticated job application (JobApplication / CV upload). */
 export async function applyToJob(payload: ApplyToJobPayload) {
     const form = new FormData();
-    form.append("job_post", String(payload.jobId));
+    form.append("job_posting", String(payload.jobId));
     form.append("aplicant_name", payload.applicantName);
     form.append("file", payload.file);
     if (payload.candidateEmail) {
@@ -78,9 +128,6 @@ export async function applyToJob(payload: ApplyToJobPayload) {
     if (payload.candidateLastName) {
         form.append("candidate_last_name", payload.candidateLastName);
     }
-    return api.post("applications/", form, {
-        headers: {
-            "Content-Type": "multipart/form-data",
-        },
-    });
+    // Do not set Content-Type — browser/axios must add multipart boundary automatically.
+    return api.post("applications/", form);
 }

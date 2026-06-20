@@ -75,8 +75,8 @@ class RFQAdmin(admin.ModelAdmin):
 
 @admin.register(SupplierOffer)
 class SupplierOfferAdmin(admin.ModelAdmin):
-    list_display = ("rfq", "currency", "total_amount", "submitted_at")
-    raw_id_fields = ("rfq",)
+    list_display = ("rfq", "currency", "total_amount", "created_by", "submitted_at")
+    raw_id_fields = ("rfq", "created_by")
 
 
 @admin.register(OfferItem)

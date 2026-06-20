@@ -148,3 +148,10 @@ MEDIA_URL = '/media/'
 
 # HR: CV uploads (PDF / Word)
 HR_CV_MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MiB
+
+# --- Email (candidate confirmation) ---
+# Dev: emails print to console. Production: configure SMTP via env.
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "SmartFlow <noreply@smartflow.local>"
+FRONTEND_URL = "http://localhost:5173"
+CANDIDATE_EMAIL_CONFIRMATION_HOURS = 24

@@ -4,7 +4,9 @@ import Field from "../../components/ui/Field";
 import Button from "../../components/ui/Button";
 import PageHeader from "../../components/ui/PageHeader";
 import { controlClass } from "../../components/ui/inputStyles";
-import { createJob, getJobs, type Job } from "./jobs.api";
+import { createJob, getAllJobsForHr, updateJobPostingStatus, type Job } from "./jobs.api";
+import JobStatusSelector, { jobPostingStatusBadgeClass } from "../../components/hr/JobStatusSelector";
+import type { JobPostingStatus } from "../../components/hr/JobStatusSelector";
 
 function formatMoney(value: string | null): string {
     if (!value) return "—";
@@ -13,19 +15,13 @@ function formatMoney(value: string | null): string {
     return n.toLocaleString();
 }
 
-function formatDate(value: string | null): string {
-    if (!value) return "—";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString();
-}
-
 export default function JobManagement() {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [busyJobId, setBusyJobId] = useState<number | null>(null);
     const [form, setForm] = useState({
         job_title: "",
         job_company: "",
@@ -44,7 +40,7 @@ export default function JobManagement() {
     const loadJobs = async () => {
         setLoading(true);
         try {
-            const data = await getJobs();
+            const data = await getAllJobsForHr();
             setJobs(data);
         } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to load jobs.");
@@ -88,11 +84,25 @@ export default function JobManagement() {
         }
     };
 
+    const handleJobStatusChange = async (jobId: number, posting_status: JobPostingStatus) => {
+        setBusyJobId(jobId);
+        setError(null);
+        try {
+            await updateJobPostingStatus(jobId, posting_status);
+            await loadJobs();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to update job status.");
+            throw e;
+        } finally {
+            setBusyJobId(null);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Job Management"
-                description="Create and manage job postings."
+                description="Create job postings and set each position to Active or Inactive."
             />
 
             {message && (
@@ -220,35 +230,55 @@ export default function JobManagement() {
                     <thead className="bg-slate-50">
                         <tr className="text-left text-slate-600">
                             <th className="px-4 py-3 font-medium">Title</th>
-                            <th className="px-4 py-3 font-medium">Salary Range</th>
-                            <th className="px-4 py-3 font-medium">Created</th>
+                            <th className="px-4 py-3 font-medium">Company</th>
+                            <th className="px-4 py-3 font-medium">Salary range</th>
+                            <th className="px-4 py-3 font-medium">Status</th>
+                            <th className="px-4 py-3 font-medium">Change status</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
                         {loading ? (
                             <tr>
-                                <td className="px-4 py-4 text-slate-500" colSpan={3}>
+                                <td className="px-4 py-4 text-slate-500" colSpan={5}>
                                     Loading jobs...
                                 </td>
                             </tr>
                         ) : jobs.length === 0 ? (
                             <tr>
-                                <td className="px-4 py-4 text-slate-500" colSpan={3}>
+                                <td className="px-4 py-4 text-slate-500" colSpan={5}>
                                     No jobs created yet.
                                 </td>
                             </tr>
                         ) : (
-                            jobs.map((job) => (
+                            jobs.map((job) => {
+                                const status = job.posting_status ?? (job.job_published ? "published" : "draft");
+                                return (
                                 <tr key={job.id}>
                                     <td className="px-4 py-3 text-slate-900">{job.job_title}</td>
+                                    <td className="px-4 py-3 text-slate-700">{job.job_company}</td>
                                     <td className="px-4 py-3 text-slate-700">
-                                        {formatMoney(job.job_salary_max)} - {formatMoney(job.job_salary_max)}
+                                        {formatMoney(job.job_salary_min)} - {formatMoney(job.job_salary_max)}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-700">
-                                        {formatDate(job.job_published_at)}
+                                    <td className="px-4 py-3">
+                                        <span className={jobPostingStatusBadgeClass(status)}>
+                                            {status === "published"
+                                                ? "Active"
+                                                : status === "closed"
+                                                  ? "Inactive"
+                                                  : "Draft"}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <JobStatusSelector
+                                            jobId={job.id}
+                                            status={status}
+                                            disabled={busyJobId === job.id}
+                                            onChange={handleJobStatusChange}
+                                        />
                                     </td>
                                 </tr>
-                            ))
+                                );
+                            })
                         )}
                     </tbody>
                 </table>

@@ -13,9 +13,9 @@ type DeniedState = {
 function domainHint(domain: AccessDomain | undefined): string {
     switch (domain) {
         case ACCESS_DOMAINS.TENDERS:
-            return "Tenders and procurement modules require an Investor or Administrator role.";
+            return "Procurement modules require a Tender user, Supplier, or Administrator role.";
         case ACCESS_DOMAINS.HR:
-            return "HR job management requires an HR or Administrator role.";
+            return "HR job management requires an HR Admin, Interviewer, or Administrator role.";
         default:
             return "Your current role does not include this area.";
     }

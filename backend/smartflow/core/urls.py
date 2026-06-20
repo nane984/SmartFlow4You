@@ -1,11 +1,18 @@
 from django.urls import path, include
-from .views import UserViewSet, RegisterViewSet
 from rest_framework.routers import DefaultRouter
 
+from .views import ConfirmEmailAPIView, RegisterViewSet, SupplierRegistrationRequestViewSet, UserViewSet
+
 router = DefaultRouter()
-router.register('users', UserViewSet)
-router.register('register', RegisterViewSet)
+router.register("users", UserViewSet)
+router.register("register", RegisterViewSet, basename="register")
+router.register(
+    "supplier-registration-requests",
+    SupplierRegistrationRequestViewSet,
+    basename="supplier-registration-request",
+)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("confirm-email/", ConfirmEmailAPIView.as_view(), name="confirm-email"),
+    path("", include(router.urls)),
 ]
