@@ -5,10 +5,13 @@ import { getCompanies } from "../../modules/companies/company.api";
 import Card from "../../components/ui/Card";
 import ItemForm from "../../components/tenders/ItemForm";
 import ItemList from "../../components/tenders/ItemList";
+import TenderAnalysisPanel from "../../components/procurement/TenderAnalysisPanel";
+import WorkPackagesSection from "../../components/workPackages/WorkPackagesSection";
 import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
+import { documentFileName, resolveMediaUrl } from "../../util/mediaUrl";
 import { getTenderById } from "./tenderApi";
-import type { Tender, TenderItem } from "./tenderTypes";
+import type { Tender, TenderDocument, TenderItem } from "./tenderTypes";
 
 function formatWhen(iso: string): string {
     const d = new Date(iso);
@@ -78,7 +81,9 @@ export default function TenderDetail() {
     }
 
     const items = tender.items ?? [];
-    const documents = tender.documents ?? [];
+    const attachedDocuments = tender.documents ?? [];
+    const primaryDocumentUrl = tender.document ? resolveMediaUrl(tender.document) : null;
+    const hasAnyDocument = Boolean(primaryDocumentUrl) || attachedDocuments.some((d) => d.file);
 
     const handleItemCreated = (item: TenderItem) => {
         setTender((prev) =>
@@ -92,9 +97,23 @@ export default function TenderDetail() {
                 title={tender.title}
                 description={`Status: ${tender.status} · Source: ${tender.source || "manual"}`}
                 actions={
-                    <LinkButton to="/tenders" variant="secondary" size="sm">
-                        ← All tenders
-                    </LinkButton>
+                    <>
+                        <LinkButton to="/tenders" variant="secondary" size="sm">
+                            ← All tenders
+                        </LinkButton>
+                        <LinkButton to={`/tenders/${tender.id}/edit`} variant="secondary" size="sm">
+                            Edit
+                        </LinkButton>
+                        <LinkButton to={`/tenders/${tender.id}#work-packages`} variant="secondary" size="sm">
+                            Work packages
+                        </LinkButton>
+                        <LinkButton to="/work-packages" variant="secondary" size="sm">
+                            All packages
+                        </LinkButton>
+                        <LinkButton to="/submissions/submit" variant="primary" size="sm">
+                            Submit bid
+                        </LinkButton>
+                    </>
                 }
             />
 
@@ -148,32 +167,84 @@ export default function TenderDetail() {
 
                 <Card>
                     <h2 className="text-base font-semibold text-slate-900">Documents</h2>
-                    {documents.length === 0 ? (
+                    {!hasAnyDocument ? (
                         <p className="mt-3 text-sm text-slate-600">No documents attached.</p>
                     ) : (
-                        <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-slate-700">
-                            {documents.map((d) => (
-                                <li key={d.id}>
-                                    {d.label || d.file || `Document #${d.id}`}
-                                    {d.file ? (
-                                        <>
-                                            {" "}
-                                            <a
-                                                href={d.file}
-                                                className="text-brand-700 underline"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                Open
-                                            </a>
-                                        </>
-                                    ) : null}
-                                </li>
-                            ))}
-                        </ul>
+                        <div className="mt-3 space-y-4">
+                            {primaryDocumentUrl ? (
+                                <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-800">
+                                        Primary document
+                                    </p>
+                                    <p className="mt-1 truncate text-sm font-medium text-slate-900">
+                                        {documentFileName(tender.document!)}
+                                    </p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        <a
+                                            href={primaryDocumentUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center rounded-lg border border-transparent bg-brand-600 px-3 py-1.5 text-sm font-medium text-white no-underline shadow-sm hover:bg-brand-700"
+                                        >
+                                            Open
+                                        </a>
+                                        <a
+                                            href={primaryDocumentUrl}
+                                            download
+                                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 no-underline shadow-sm hover:bg-slate-50"
+                                        >
+                                            Download
+                                        </a>
+                                    </div>
+                                </div>
+                            ) : null}
+                            {attachedDocuments.length > 0 ? (
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Additional attachments
+                                    </p>
+                                    <ul className="mt-2 space-y-2">
+                                        {attachedDocuments.map((d: TenderDocument) => {
+                                            const fileUrl = d.file ? resolveMediaUrl(d.file) : "";
+                                            return (
+                                                <li
+                                                    key={d.id}
+                                                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-sm"
+                                                >
+                                                    <span className="font-medium text-slate-800">
+                                                        {d.label || (fileUrl ? documentFileName(fileUrl) : `Document #${d.id}`)}
+                                                    </span>
+                                                    {fileUrl ? (
+                                                        <a
+                                                            href={fileUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-sm font-medium text-brand-700 hover:underline"
+                                                        >
+                                                            Open
+                                                        </a>
+                                                    ) : null}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            ) : null}
+                        </div>
                     )}
                 </Card>
             </div>
+
+            <div className="mt-6 max-w-5xl">
+                <TenderAnalysisPanel
+                    summary={tender.analysis_summary}
+                    visibility={tender.visibility}
+                    analysisNotes={tender.analysis_notes}
+                    supplierNames={tender.supplier_names}
+                />
+            </div>
+
+            <WorkPackagesSection tenderId={tender.id} />
 
             <Card className="mt-6 max-w-5xl space-y-4 p-0">
                 <div className="border-b border-slate-100 px-4 py-3">

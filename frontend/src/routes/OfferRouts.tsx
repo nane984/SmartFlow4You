@@ -1,10 +1,10 @@
 import { Route, Routes } from "react-router-dom";
 import OfferList from "../modules/offer/OfferList";
 
-/** Nested routes for `/offers/*`; declare paths relative to the parent segment. */
+/** Nested routes for `/offers/*` */
 const OfferRoutes = () => (
     <Routes>
-        <Route path="/" element={<OfferList />} />
+        <Route index element={<OfferList />} />
     </Routes>
 );
 

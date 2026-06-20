@@ -1,22 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Company } from "./company.type";
-import { getCompanies } from "./company.api";
+import type { Company, CompanyRoleType } from "./company.type";
+import { deleteCompany, getCompanies } from "./company.api";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
 import LinkButton from "../../components/ui/LinkButton";
 import Field from "../../components/ui/Field";
+import TenderStatusBadge from "../../components/ui/TenderStatusBadge";
 import { controlClass } from "../../components/ui/inputStyles";
+import { TENDER_STATUSES } from "../tenders/tenderStatus";
 
-type CompanyKind = "investor" | "contractor" | "supplier";
-type FilterValue = "all" | CompanyKind;
+type FilterValue = "all" | CompanyRoleType;
 
-function normalizeType(c: Company): CompanyKind | null {
+function normalizeType(c: Company): CompanyRoleType | null {
     const t = (c.company_type ?? "").toLowerCase().trim();
     if (t === "investor" || t === "contractor" || t === "supplier") return t;
     return null;
 }
 
-function typeLabel(kind: CompanyKind): string {
+function typeLabel(kind: CompanyRoleType): string {
     switch (kind) {
         case "investor":
             return "Investor";
@@ -27,8 +29,8 @@ function typeLabel(kind: CompanyKind): string {
     }
 }
 
-function TypeBadge({ kind }: { kind: CompanyKind }) {
-    const styles: Record<CompanyKind, string> = {
+function TypeBadge({ kind }: { kind: CompanyRoleType }) {
+    const styles: Record<CompanyRoleType, string> = {
         investor: "bg-blue-100 text-blue-900 ring-1 ring-blue-200",
         contractor: "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200",
         supplier: "bg-orange-100 text-orange-900 ring-1 ring-orange-200",
@@ -42,8 +44,25 @@ function TypeBadge({ kind }: { kind: CompanyKind }) {
     );
 }
 
-function CompanyRow({ company }: { company: Company }) {
+function CompanyRow({
+    company,
+    onDeleted,
+}: {
+    company: Company;
+    onDeleted: (id: number) => void;
+}) {
     const kind = normalizeType(company);
+
+    const handleDelete = async () => {
+        if (!window.confirm(`Delete company "${company.name}"?`)) return;
+        try {
+            await deleteCompany(company.id);
+            onDeleted(company.id);
+        } catch {
+            window.alert("Could not delete company. It may be linked to tenders or other records.");
+        }
+    };
+
     return (
         <li className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 py-3 last:border-b-0">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
@@ -56,9 +75,14 @@ function CompanyRow({ company }: { company: Company }) {
                     </span>
                 )}
             </div>
-            <LinkButton variant="secondary" size="sm" to={`/companies/${company.id}/edit`}>
-                Edit
-            </LinkButton>
+            <div className="flex shrink-0 gap-2">
+                <LinkButton variant="secondary" size="sm" to={`/companies/${company.id}/edit`}>
+                    Edit
+                </LinkButton>
+                <Button type="button" variant="danger" size="sm" onClick={handleDelete}>
+                    Delete
+                </Button>
+            </div>
         </li>
     );
 }
@@ -66,9 +90,11 @@ function CompanyRow({ company }: { company: Company }) {
 function SectionBlock({
     title,
     companies,
+    onDeleted,
 }: {
     title: string;
     companies: Company[];
+    onDeleted: (id: number) => void;
 }) {
     return (
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5">
@@ -79,7 +105,7 @@ function SectionBlock({
                 {companies.length === 0 ? (
                     <li className="py-4 text-sm text-slate-500">No companies in this category.</li>
                 ) : (
-                    companies.map((c) => <CompanyRow key={c.id} company={c} />)
+                    companies.map((c) => <CompanyRow key={c.id} company={c} onDeleted={onDeleted} />)
                 )}
             </ul>
         </section>
@@ -129,11 +155,15 @@ export default function CompanyList() {
 
     const empty = !loading && companies.length === 0;
 
+    const handleCompanyDeleted = (id: number) => {
+        setCompanies((prev) => prev.filter((c) => c.id !== id));
+    };
+
     return (
         <>
             <PageHeader
                 title="Companies"
-                description="Organizations by role (investor, contractor, supplier)."
+                description="Organizations by role (investor, contractor, supplier). Tender statuses below match the procurement lifecycle on linked tenders."
                 actions={
                     <LinkButton variant="primary" size="sm" to="/companies/new">
                         Add company
@@ -161,11 +191,11 @@ export default function CompanyList() {
 
                 {!loading && !empty && filter === "all" && (
                     <div className="space-y-8">
-                        <SectionBlock title="Investors" companies={grouped.investors} />
-                        <SectionBlock title="Contractors" companies={grouped.contractors} />
-                        <SectionBlock title="Suppliers" companies={grouped.suppliers} />
+                        <SectionBlock title="Investors" companies={grouped.investors} onDeleted={handleCompanyDeleted} />
+                        <SectionBlock title="Contractors" companies={grouped.contractors} onDeleted={handleCompanyDeleted} />
+                        <SectionBlock title="Suppliers" companies={grouped.suppliers} onDeleted={handleCompanyDeleted} />
                         {grouped.other.length > 0 && (
-                            <SectionBlock title="Other / unspecified" companies={grouped.other} />
+                            <SectionBlock title="Other / unspecified" companies={grouped.other} onDeleted={handleCompanyDeleted} />
                         )}
                     </div>
                 )}
@@ -176,10 +206,32 @@ export default function CompanyList() {
                             {filteredFlat.length === 0 ? (
                                 <li className="py-6 text-sm text-slate-600">No companies found.</li>
                             ) : (
-                                filteredFlat.map((c) => <CompanyRow key={c.id} company={c} />)
+                                filteredFlat.map((c) => (
+                                    <CompanyRow key={c.id} company={c} onDeleted={handleCompanyDeleted} />
+                                ))
                             )}
                         </ul>
                     </div>
+                )}
+
+                {!loading && (
+                    <section
+                        aria-label="Tender status reference"
+                        className="rounded-xl border border-dashed border-slate-200 bg-slate-50/90 px-4 py-4"
+                    >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                            Tender statuses (reference)
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                            Same values as <code className="rounded bg-white px-1 py-0.5 text-slate-700">GET /api/tenders/</code>{" "}
+                            — use these badges on tender lists and detail views.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {TENDER_STATUSES.map((s) => (
+                                <TenderStatusBadge key={s} status={s} />
+                            ))}
+                        </div>
+                    </section>
                 )}
             </Card>
         </>

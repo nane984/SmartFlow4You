@@ -18,6 +18,8 @@ const CompanyForm = () => {
         city: "",
         company_type: "contractor",
     });
+    const [error, setError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -45,12 +47,20 @@ const CompanyForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (id) {
-            await updateCompany(Number(id), data);
-        } else {
-            await createCompany(data);
+        setError(null);
+        setSaving(true);
+        try {
+            if (id) {
+                await updateCompany(Number(id), data);
+            } else {
+                await createCompany(data);
+            }
+            navigate("/companies");
+        } catch {
+            setError("Could not save company. Check the fields and try again.");
+        } finally {
+            setSaving(false);
         }
-        navigate("/companies");
     };
 
     const isEdit = Boolean(id);
@@ -62,6 +72,11 @@ const CompanyForm = () => {
                 description="Store contact details for partners and clients."
             />
             <Card className="max-w-xl">
+                {error && (
+                    <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                        {error}
+                    </div>
+                )}
                 <form className="space-y-5" onSubmit={handleSubmit}>
                     <Field label="Company type">
                         <select
@@ -118,7 +133,9 @@ const CompanyForm = () => {
                         />
                     </Field>
                     <div className="flex flex-wrap gap-2 pt-2">
-                        <Button type="submit">Save</Button>
+                        <Button type="submit" disabled={saving}>
+                            {saving ? "Saving…" : "Save"}
+                        </Button>
                         <Button type="button" variant="secondary" onClick={() => navigate("/companies")}>
                             Cancel
                         </Button>

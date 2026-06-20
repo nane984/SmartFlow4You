@@ -30,12 +30,12 @@ export function CandidateDashboardPage() {
                 <Card>
                     <h3 className="font-semibold text-slate-900">Open jobs</h3>
                     <p className="mt-2 text-sm text-slate-600">View available positions.</p>
-                    <LinkButton to="/jobs" variant="secondary" size="sm" className="mt-4">Browse jobs</LinkButton>
+                    <LinkButton to="/candidate/jobs" variant="secondary" size="sm" className="mt-4">Browse jobs</LinkButton>
                 </Card>
                 <Card>
                     <h3 className="font-semibold text-slate-900">Applications</h3>
                     <p className="mt-2 text-sm text-slate-600">Submit your CV and track progress.</p>
-                    <LinkButton to="/apply" variant="secondary" size="sm" className="mt-4">Apply now</LinkButton>
+                    <LinkButton to="/candidate" variant="secondary" size="sm" className="mt-4">Candidate portal</LinkButton>
                 </Card>
             </div>
         </>
