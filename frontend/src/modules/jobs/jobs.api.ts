@@ -58,13 +58,26 @@ export type ApplyToJobPayload = {
     jobId: number;
     applicantName: string;
     file: File;
+    candidateEmail?: string;
+    candidateFirstName?: string;
+    candidateLastName?: string;
 };
 
+/** Public or authenticated job application (JobApplication / CV upload). */
 export async function applyToJob(payload: ApplyToJobPayload) {
     const form = new FormData();
     form.append("job_post", String(payload.jobId));
     form.append("aplicant_name", payload.applicantName);
     form.append("file", payload.file);
+    if (payload.candidateEmail) {
+        form.append("candidate_email", payload.candidateEmail);
+    }
+    if (payload.candidateFirstName) {
+        form.append("candidate_first_name", payload.candidateFirstName);
+    }
+    if (payload.candidateLastName) {
+        form.append("candidate_last_name", payload.candidateLastName);
+    }
     return api.post("applications/", form, {
         headers: {
             "Content-Type": "multipart/form-data",

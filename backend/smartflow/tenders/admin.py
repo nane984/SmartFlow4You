@@ -9,6 +9,8 @@ from .models import (
     Tender,
     TenderDocument,
     TenderItem,
+    WorkPackage,
+    WorkPackageSubmission,
 )
 
 
@@ -40,6 +42,21 @@ class TenderDocumentAdmin(admin.ModelAdmin):
     list_display = ("tender", "label", "uploaded_at")
     list_filter = ("uploaded_at",)
     raw_id_fields = ("tender",)
+
+
+@admin.register(WorkPackage)
+class WorkPackageAdmin(admin.ModelAdmin):
+    list_display = ("name", "tender", "created_at")
+    list_filter = ("tender",)
+    search_fields = ("name", "description")
+    raw_id_fields = ("tender",)
+
+
+@admin.register(WorkPackageSubmission)
+class WorkPackageSubmissionAdmin(admin.ModelAdmin):
+    list_display = ("work_package", "subcontractor", "status", "price", "submitted_at")
+    list_filter = ("status",)
+    raw_id_fields = ("work_package", "subcontractor")
 
 
 @admin.register(TenderItem)

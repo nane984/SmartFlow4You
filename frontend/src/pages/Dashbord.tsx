@@ -4,24 +4,24 @@ import PageHeader from "../components/ui/PageHeader";
 
 const tiles = [
     {
-        to: "/hr-dashboard",
-        title: "HR & applications",
-        body: "Submit CVs against open roles and manage interview assets.",
-    },
-    {
         to: "/tenders",
         title: "Tenders",
-        body: "Browse opportunities, create records, and track status.",
+        body: "Procurement opportunities, work packages, and submissions.",
+    },
+    {
+        to: "/hr/jobs",
+        title: "HR Jobs",
+        body: "Create postings and review applicants.",
+    },
+    {
+        to: "/candidate",
+        title: "Candidate portal",
+        body: "Public job search and applications.",
     },
     {
         to: "/companies",
         title: "Companies",
-        body: "Maintain partner and client organization profiles.",
-    },
-    {
-        to: "/offers",
-        title: "Offers",
-        body: "Review submitted offers linked to tenders.",
+        body: "Investor, contractor, and supplier profiles.",
     },
 ] as const;
 

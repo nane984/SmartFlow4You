@@ -10,6 +10,8 @@ from .views import (
     TenderDocumentViewSet,
     TenderItemViewSet,
     TenderViewSet,
+    WorkPackageSubmissionViewSet,
+    WorkPackageViewSet,
 )
 
 router = DefaultRouter()
@@ -21,6 +23,8 @@ router.register("rfqs", RFQViewSet, basename="rfq")
 router.register("offers", SupplierOfferViewSet, basename="supplieroffer")
 router.register("offer-items", OfferItemViewSet, basename="offeritem")
 router.register("final-offers", FinalOfferViewSet, basename="finaloffer")
+router.register("work-packages", WorkPackageViewSet, basename="workpackage")
+router.register("submissions", WorkPackageSubmissionViewSet, basename="workpackagesubmission")
 
 urlpatterns = [
     path("", include(router.urls)),

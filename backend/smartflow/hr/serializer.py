@@ -4,19 +4,50 @@ from django.conf import settings
 from django.db import models
 from rest_framework import serializers
 
-from .models import Answer, CV, InterviewSession, JobPost, Question, VideoSubmission
+from .models import Answer, Candidate, CV, InterviewSession, JobPost, Question, VideoSubmission
 
 ALLOWED_CV_EXTENSIONS = frozenset({".pdf", ".doc", ".docx"})
 
 
+class CandidateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Candidate
+        fields = ("id", "first_name", "last_name", "email", "created_at")
+        read_only_fields = ("id", "created_at")
+
+
 class JobPostSerializer(serializers.ModelSerializer):
+    """Job posting (JobPosting) API representation."""
+
+    title = serializers.CharField(source="job_title", read_only=True)
+    description = serializers.CharField(source="job_description", read_only=True)
+
     class Meta:
         model = JobPost
         fields = "__all__"
 
+    def validate(self, attrs):
+        status = attrs.get("posting_status")
+        if status == JobPost.PostingStatus.PUBLISHED:
+            attrs["job_published"] = True
+            if not attrs.get("job_published_at") and not (self.instance and self.instance.job_published_at):
+                from django.utils import timezone
+
+                attrs["job_published_at"] = timezone.now()
+        elif status in (JobPost.PostingStatus.DRAFT, JobPost.PostingStatus.CLOSED):
+            if status == JobPost.PostingStatus.DRAFT:
+                attrs["job_published"] = False
+        return super().validate(attrs)
+
 
 class CVSerializer(serializers.ModelSerializer):
-    """CV read/update; `file` validated on write."""
+    """Job application (JobApplication) — CV file upload."""
+
+    job_posting = serializers.PrimaryKeyRelatedField(source="job_post", queryset=JobPost.objects.all())
+    candidate_email = serializers.EmailField(write_only=True, required=False)
+    candidate_first_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    candidate_last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    candidate_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CV
@@ -25,12 +56,54 @@ class CVSerializer(serializers.ModelSerializer):
             "file",
             "aplicant_name",
             "job_post",
+            "job_posting",
+            "candidate",
+            "candidate_email",
+            "candidate_first_name",
+            "candidate_last_name",
+            "candidate_name",
             "submitted_by",
             "score",
             "processed",
             "status",
+            "submitted_at",
         )
-        read_only_fields = ("id", "score", "processed", "submitted_by")
+        read_only_fields = ("id", "score", "processed", "submitted_by", "submitted_at", "candidate")
+
+    def get_candidate_name(self, obj: CV) -> str:
+        if obj.candidate_id:
+            c = obj.candidate
+            return f"{c.first_name} {c.last_name}".strip()
+        return obj.aplicant_name
+
+    def _resolve_candidate(self, validated_data: dict) -> Candidate | None:
+        email = validated_data.pop("candidate_email", None)
+        first = validated_data.pop("candidate_first_name", None) or ""
+        last = validated_data.pop("candidate_last_name", None) or ""
+        if not email:
+            return validated_data.get("candidate")
+        candidate, _ = Candidate.objects.get_or_create(
+            email=email.strip().lower(),
+            defaults={
+                "first_name": first.strip() or validated_data.get("aplicant_name", "Candidate"),
+                "last_name": last.strip(),
+            },
+        )
+        if first and candidate.first_name != first.strip():
+            candidate.first_name = first.strip()
+            candidate.save(update_fields=["first_name"])
+        if last and candidate.last_name != last.strip():
+            candidate.last_name = last.strip()
+            candidate.save(update_fields=["last_name"])
+        return candidate
+
+    def create(self, validated_data):
+        candidate = self._resolve_candidate(validated_data)
+        if candidate:
+            validated_data["candidate"] = candidate
+            if not validated_data.get("aplicant_name"):
+                validated_data["aplicant_name"] = f"{candidate.first_name} {candidate.last_name}".strip()
+        return super().create(validated_data)
 
     def validate_file(self, file):
         max_bytes = getattr(settings, "HR_CV_MAX_UPLOAD_BYTES", 5 * 1024 * 1024)

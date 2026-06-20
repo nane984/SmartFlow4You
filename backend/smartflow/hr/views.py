@@ -6,7 +6,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Answer, CV, InterviewSession, JobPost, Question, VideoSubmission
+from .models import Answer, Candidate, CV, InterviewSession, JobPost, Question, VideoSubmission
 from .permissions import (
     IsCandidate,
     IsHRUser,
@@ -15,6 +15,7 @@ from .permissions import (
 )
 from .serializer import (
     AnswerReviewSerializer,
+    CandidateSerializer,
     CVSerializer,
     InterviewSessionSerializer,
     JobPostSerializer,
@@ -51,7 +52,9 @@ class JobPostViewSet(viewsets.ModelViewSet):
             self.action == "list"
             and self.request.query_params.get("for_application") == "1"
         ):
-            return qs.filter(published=True).order_by("-published_at", "-id")
+            return qs.filter(
+                posting_status=JobPost.PostingStatus.PUBLISHED
+            ).order_by("-job_published_at", "-id")
         return qs.order_by("-id")
 
 
@@ -245,6 +248,20 @@ class InterviewVideoUploadAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+class CandidateViewSet(viewsets.ModelViewSet):
+    """Public candidate registration; HR can list profiles."""
+
+    queryset = Candidate.objects.all().order_by("-created_at")
+    serializer_class = CandidateSerializer
+
+    def get_permissions(self):
+        if self.action == "create":
+            return [permissions.AllowAny()]
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated(), IsHRUser()]
+        return [permissions.IsAuthenticated(), IsHRUser()]
+
+
 class JobAccessViewSet(viewsets.ModelViewSet):
     """
     Alias endpoints:
@@ -264,22 +281,22 @@ class JobAccessViewSet(viewsets.ModelViewSet):
 
 class ApplicationViewSet(viewsets.ModelViewSet):
     """
-    Alias endpoints:
-    - POST /api/applications/ CANDIDATE
-    - GET /api/applications/ HR + ADMIN
+    Job applications (JobApplication):
+    - POST /api/applications/ — public with candidate_* fields or authenticated candidate
+    - GET /api/applications/ — HR + ADMIN
     """
 
-    queryset = CV.objects.select_related("job_post").all().order_by("-id")
+    queryset = CV.objects.select_related("job_post", "candidate").all().order_by("-submitted_at", "-id")
     serializer_class = CVSerializer
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
-        if self.action in ("create",):
-            return [permissions.IsAuthenticated(), IsCandidate()]
-        if self.action in ("list",):
+        if self.action == "create":
+            return [permissions.AllowAny()]
+        if self.action == "list":
             return [permissions.IsAuthenticated(), IsHRUser()]
-        return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsHRUser()]
 
     def get_queryset(self):
         qs = CV.objects.select_related("job_post").all().order_by("-id")
@@ -288,7 +305,11 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return qs.filter(submitted_by=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(submitted_by=self.request.user)
+        user = self.request.user
+        if user.is_authenticated:
+            serializer.save(submitted_by=user)
+        else:
+            serializer.save(submitted_by=None)
 
 
 class InterviewAccessViewSet(viewsets.ModelViewSet):

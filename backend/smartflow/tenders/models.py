@@ -57,6 +57,10 @@ class Tender(models.Model):
         EMAIL = "email", "Email"
         API = "api", "API"
 
+    class Visibility(models.TextChoices):
+        PUBLIC = "public", "Public"
+        PRIVATE = "private", "Private"
+
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     investor = models.ForeignKey(
@@ -93,7 +97,31 @@ class Tender(models.Model):
     tender_type = models.CharField(
         max_length=50,
         blank=True,
-        help_text="e.g. public, private.",
+        help_text="Legacy/free-form type label; prefer visibility for public vs private.",
+    )
+    visibility = models.CharField(
+        max_length=20,
+        choices=Visibility.choices,
+        default=Visibility.PUBLIC,
+        blank=True,
+        db_index=True,
+        help_text="Tender classification for analysis layer (public vs private procurement).",
+    )
+    analysis_notes = models.TextField(
+        blank=True,
+        help_text="Tender analysis layer — AI summaries, categorization notes (future automation).",
+    )
+    suppliers = models.ManyToManyField(
+        Company,
+        related_name="supplier_tenders",
+        blank=True,
+        help_text="Supplier companies engaged in this tender context.",
+    )
+    document = models.FileField(
+        upload_to="tender_uploads/%Y/%m/",
+        blank=True,
+        null=True,
+        help_text="Primary tender document (PDF, Excel, Word, etc.).",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -131,6 +159,125 @@ class TenderDocument(models.Model):
         f = getattr(self, "file", None)
         fname = getattr(f, "name", "") if f else ""
         return str(fname) if fname else "Document"
+
+
+class WorkPackage(models.Model):
+    """Scoped package of work within a tender (admin-defined, own Excel template)."""
+
+    class WorkCategory(models.TextChoices):
+        ELECTRICAL = "electrical", "Electrical works"
+        HVAC = "hvac", "HVAC"
+        CIVIL = "civil", "Civil works"
+        FINISHING = "finishing", "Finishing works"
+
+    class ObjectType(models.TextChoices):
+        RESIDENTIAL = "residential", "Residential"
+        COMMERCIAL = "commercial", "Commercial"
+        INDUSTRIAL = "industrial", "Industrial"
+        INFRASTRUCTURE = "infrastructure", "Infrastructure"
+
+    tender = models.ForeignKey(
+        Tender,
+        on_delete=models.CASCADE,
+        related_name="work_packages",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    work_category = models.CharField(
+        max_length=30,
+        choices=WorkCategory.choices,
+        blank=True,
+        db_index=True,
+        help_text="Trade / work type for analysis and reporting.",
+    )
+    object_type = models.CharField(
+        max_length=30,
+        choices=ObjectType.choices,
+        blank=True,
+        db_index=True,
+        help_text="Building or project object classification.",
+    )
+    contractors = models.ManyToManyField(
+        Company,
+        related_name="assigned_work_packages",
+        blank=True,
+        help_text="Contractor companies eligible for this work package.",
+    )
+    template_file = models.FileField(
+        upload_to="work_packages/templates/%Y/%m/",
+        blank=True,
+        null=True,
+        help_text="Excel template subcontractors fill in and return.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self) -> str:
+        tender = cast(Tender, self.tender)
+        return f"{self.name} — {tender.title}"
+
+
+class WorkPackageSubmission(models.Model):
+    """Subcontractor bid for a work package (completed Excel upload)."""
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        REVIEWED = "reviewed", "Reviewed"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+
+    subcontractor = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="work_package_submissions",
+    )
+    work_package = models.ForeignKey(
+        WorkPackage,
+        on_delete=models.CASCADE,
+        related_name="submissions",
+    )
+    uploaded_file = models.FileField(upload_to="work_packages/submissions/%Y/%m/")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.SUBMITTED,
+        db_index=True,
+    )
+    price = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at", "-id"]
+
+    def clean(self):
+        super().clean()
+        if not getattr(self, "subcontractor_id", None):
+            return
+        sub = cast(Company, self.subcontractor)
+        allowed = {
+            str(Company.CompanyType.CONTRACTOR),
+            str(Company.CompanyType.SUPPLIER),
+        }
+        if str(sub.company_type) not in allowed:
+            raise ValidationError(
+                {
+                    "subcontractor": (
+                        "Submissions must be from a contractor or supplier company."
+                    )
+                }
+            )
+
+    def __str__(self) -> str:
+        sub = cast(Company, self.subcontractor)
+        wp = cast(WorkPackage, self.work_package)
+        return f"{sub.name} → {wp.name} ({self.status})"
 
 
 class TenderItem(models.Model):

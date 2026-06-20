@@ -2,7 +2,36 @@ from django.db import models
 from core.models import User
 
 
+class Candidate(models.Model):
+    """Job seeker profile (HR domain) — may exist without platform User account."""
+
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, blank=True)
+    email = models.EmailField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "last_name", "first_name"]
+
+    def __str__(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip() or self.email
+
+
 class JobPost(models.Model):
+    """Job posting (JobPosting) — HR creates and publishes roles."""
+
+    class PostingStatus(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+        CLOSED = "closed", "Closed"
+
+    class Department(models.TextChoices):
+        HR = "hr", "HR"
+        ENGINEERING = "engineering", "Engineering"
+        OPERATIONS = "operations", "Operations"
+        PROCUREMENT = "procurement", "Procurement"
+        OTHER = "other", "Other"
+
     job_title = models.CharField(max_length=255)
     job_company = models.CharField(max_length=255)
     job_location = models.CharField(max_length=255)
@@ -26,25 +55,49 @@ class JobPost(models.Model):
     job_category = models.CharField(max_length=255)
     job_subcategory = models.CharField(max_length=255)
     
+    department = models.CharField(
+        max_length=50,
+        choices=Department.choices,
+        default=Department.HR,
+        blank=True,
+    )
+    posting_status = models.CharField(
+        max_length=20,
+        choices=PostingStatus.choices,
+        default=PostingStatus.DRAFT,
+        db_index=True,
+    )
     job_created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     job_published = models.BooleanField(default=False)
     job_published_at = models.DateTimeField(null=True, blank=True)
 
+    @property
+    def is_published(self) -> bool:
+        return self.posting_status == self.PostingStatus.PUBLISHED or self.job_published
+
 
 class CV(models.Model):
-    STATUS_PENDING = "pending"
-    STATUS_ACCEPTED = "accepted"
-    STATUS_REJECTED = "rejected"
+    """
+    Job application (JobApplication) — candidate CV upload for a job posting.
+  """
 
-    STATUS_CHOICES = [
-        (STATUS_PENDING, "Pending"),
-        (STATUS_ACCEPTED, "Accepted"),
-        (STATUS_REJECTED, "Rejected"),
-    ]
+    class ApplicationStatus(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        REVIEWED = "reviewed", "Reviewed"
+        INTERVIEW = "interview", "Interview"
+        REJECTED = "rejected", "Rejected"
+        ACCEPTED = "accepted", "Accepted"
 
-    file = models.FileField(upload_to='cvs/')                       # u folder cvs uploaduje cv
+    file = models.FileField(upload_to="cvs/")
     aplicant_name = models.CharField(max_length=255)
-    job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE)
+    candidate = models.ForeignKey(
+        Candidate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="applications",
+    )
+    job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, related_name="applications")
     submitted_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -55,7 +108,16 @@ class CV(models.Model):
     )
     score = models.FloatField(null=True)
     processed = models.BooleanField(default=False)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status = models.CharField(
+        max_length=20,
+        choices=ApplicationStatus.choices,
+        default=ApplicationStatus.SUBMITTED,
+        db_index=True,
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at", "-id"]
 
 
 class InterviewSession(models.Model):

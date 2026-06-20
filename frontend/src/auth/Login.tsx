@@ -5,6 +5,7 @@ import Card from "../components/ui/Card";
 import Field from "../components/ui/Field";
 import Button from "../components/ui/Button";
 import { controlClass } from "../components/ui/inputStyles";
+import { clearMockSession, roleHomePath } from "./accessUtils";
 import { setStoredRole } from "./authUtils";
 import type { AppRole } from "./roles";
 
@@ -25,13 +26,6 @@ export default function Login() {
     const location = useLocation();
     const [searchParams] = useSearchParams();
 
-    const roleHome = (role: AppRole | null): string => {
-        if (role === "admin") return "/admin-dashboard";
-        if (role === "hr") return "/hr-dashboard";
-        if (role === "interviewer") return "/interviewer-dashboard";
-        return "/candidate-dashboard";
-    };
-
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -39,6 +33,7 @@ export default function Login() {
         try {
             const res = await api.post("token/", { username, password });
 
+            clearMockSession();
             localStorage.setItem("access", res.data.access);
             localStorage.setItem("refresh", res.data.refresh);
 
@@ -50,7 +45,7 @@ export default function Login() {
             const target =
                 safeInternalPath(fromState) ||
                 safeInternalPath(fromQuery) ||
-                roleHome(me.data.role);
+                roleHomePath(me.data.role);
 
             navigate(target, { replace: true });
         } catch {

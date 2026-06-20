@@ -3,7 +3,8 @@ import Navbar from "./Navbar";
 import PageContainer from "./PageContainer";
 
 /**
- * Authenticated shell: sticky navbar + scrollable main with consistent page padding.
+ * Global app shell: sticky navbar + scrollable main with consistent page padding.
+ * Wraps public routes (home, candidate portal) and authenticated modules alike.
  */
 export default function Layout() {
     return (

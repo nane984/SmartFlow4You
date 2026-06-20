@@ -53,6 +53,7 @@ export function getUserRole(): AppRole | null {
 
     if (
         role === ROLES.ADMIN ||
+        role === ROLES.INVESTOR ||
         role === ROLES.HR ||
         role === ROLES.CANDIDATE ||
         role === ROLES.INTERVIEWER
