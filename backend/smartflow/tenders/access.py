@@ -6,6 +6,7 @@ from django.db.models import Q, QuerySet
 
 from core.roles import (
     ROLE_ADMIN,
+    ROLE_TENDER,
     ROLE_TENDER_USER,
     effective_role,
     is_procurement_staff,
@@ -26,7 +27,7 @@ def get_user_company(user):
     if not email:
         return None
     role = effective_role(getattr(user, "role", None))
-    if role == ROLE_TENDER_USER:
+    if role in (ROLE_ADMIN, ROLE_TENDER, ROLE_TENDER_USER):
         return Company.objects.filter(
             email__iexact=email,
             company_type=Company.CompanyType.INVESTOR,
@@ -48,7 +49,7 @@ def filter_tenders_for_user(qs: QuerySet, user) -> QuerySet:
     if not user or not getattr(user, "is_authenticated", False):
         return qs.none()
     role = effective_role(getattr(user, "role", None))
-    if role in (ROLE_ADMIN, ROLE_TENDER_USER):
+    if role in (ROLE_ADMIN, ROLE_TENDER, ROLE_TENDER_USER):
         return qs
     if is_supplier_user(user):
         company_id = get_user_company_id(user)

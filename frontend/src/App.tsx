@@ -25,6 +25,7 @@ import AccessDenied from "./pages/AccessDenied";
 import SupplierRequestsPage from "./pages/admin/SupplierRequestsPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import JobRoutes from "./routes/JobRoutes";
+import InteriorRoutes from "./routes/InteriorRoutes";
 import HrRoutes from "./routes/HrRoutes";
 import HrDashboard from "./modules/hr/HrDashboard";
 import {
@@ -97,6 +98,10 @@ function App() {
               <Route path="admin/users" element={<UserManagementPage />} />
             </Route>
 
+            <Route element={<RequireAccess domain={ACCESS_DOMAINS.INTERIOR_DESIGN} />}>
+              <Route path="interior/*" element={<InteriorRoutes />} />
+            </Route>
+
             <Route element={<RequireAccess domain={ACCESS_DOMAINS.TENDERS} />}>
               <Route path="tenders/*" element={<TenderRoutes />} />
               <Route path="work-packages/*" element={<WorkPackageRoutes />} />
@@ -111,15 +116,6 @@ function App() {
                 <PlaceholderPage
                   title="Time tracking"
                   description="Track hours and attendance across teams."
-                />
-              }
-            />
-            <Route
-              path="interior"
-              element={
-                <PlaceholderPage
-                  title="Interior design"
-                  description="Concepts and project boards will appear here."
                 />
               }
             />

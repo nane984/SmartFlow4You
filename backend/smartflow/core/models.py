@@ -4,10 +4,12 @@ from django.db import models
 from .roles import (
     ROLE_ADMIN,
     ROLE_CANDIDATE,
+    ROLE_DESIGNER,
     ROLE_HR_ADMIN,
     ROLE_HR_LEGACY,
     ROLE_INTERVIEWER_LEGACY,
     ROLE_SUPPLIER,
+    ROLE_TENDER,
     ROLE_TENDER_USER,
 )
 
@@ -18,9 +20,11 @@ class User(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = ROLE_ADMIN, "Administrator"
         HR_ADMIN = ROLE_HR_ADMIN, "HR Admin"
+        TENDER = ROLE_TENDER, "Tender"
         TENDER_USER = ROLE_TENDER_USER, "Tender user"
         SUPPLIER = ROLE_SUPPLIER, "Supplier"
         CANDIDATE = ROLE_CANDIDATE, "Candidate"
+        DESIGNER = ROLE_DESIGNER, "Designer"
         # Legacy — kept for existing rows; migrate to HR_ADMIN where possible
         HR = ROLE_HR_LEGACY, "HR (legacy)"
         INTERVIEWER = ROLE_INTERVIEWER_LEGACY, "Interviewer (legacy)"

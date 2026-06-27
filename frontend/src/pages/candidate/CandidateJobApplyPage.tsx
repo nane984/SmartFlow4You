@@ -13,6 +13,8 @@ import {
 } from "../../modules/candidate/candidateProfile";
 import { getStoredUser, isAppAuthenticated } from "../../auth/accessUtils";
 import { applyToJob, getJobById, getMyApplications, type Job, type JobApplication } from "../../modules/jobs/jobs.api";
+import { getMyInterviewSessions } from "../../modules/hr/interviewRoom.api";
+import type { InterviewSession } from "../../modules/hr/interviewRoom.types";
 import { formatApiErrors } from "../../util/formatApiErrors";
 import {
     APPLICATION_STATUS_CANDIDATE_HINTS,
@@ -27,6 +29,7 @@ export default function CandidateJobApplyPage() {
 
     const [job, setJob] = useState<Job | null>(null);
     const [existingApplication, setExistingApplication] = useState<JobApplication | null>(null);
+    const [interviewSession, setInterviewSession] = useState<InterviewSession | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +61,19 @@ export default function CandidateJobApplyPage() {
                         (app) => (app.job_post ?? app.job_posting) === loadedJob.id
                     );
                     setExistingApplication(match ?? null);
+                    if (match) {
+                        const sessions = await getMyInterviewSessions({ job_post: loadedJob.id }).catch(
+                            () => []
+                        );
+                        const active = sessions.find(
+                            (s) =>
+                                (s.application_id === match.id || s.cv === match.id) &&
+                                s.status !== "cancelled"
+                        );
+                        setInterviewSession(active ?? sessions[0] ?? null);
+                    } else {
+                        setInterviewSession(null);
+                    }
                 }
             } catch (e) {
                 setError(e instanceof Error ? e.message : "Failed to load job.");
@@ -178,6 +194,27 @@ export default function CandidateJobApplyPage() {
                         ) : (
                             <p className="text-xs text-slate-500">Waiting for HR review.</p>
                         )}
+                        {existingApplication.status === "interview" ? (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {interviewSession ? (
+                                    <LinkButton
+                                        to={`/candidate/interview/${interviewSession.id}`}
+                                        variant="primary"
+                                        size="sm"
+                                    >
+                                        {interviewSession.status === "completed"
+                                            ? "View interview"
+                                            : interviewSession.status === "in_progress"
+                                              ? "Continue interview"
+                                              : "Start interview"}
+                                    </LinkButton>
+                                ) : (
+                                    <LinkButton to="/candidate/interviews" variant="primary" size="sm">
+                                        My interviews
+                                    </LinkButton>
+                                )}
+                            </div>
+                        ) : null}
                     </div>
                 ) : (
                 <>

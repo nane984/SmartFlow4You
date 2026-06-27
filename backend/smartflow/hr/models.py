@@ -145,6 +145,31 @@ class InterviewSession(models.Model):
         help_text="Final interview test score (0-100). Calculated once on answer submission.",
     )
     feedback = models.TextField(null=True, blank=True)
+    focus_violations = models.PositiveIntegerField(
+        default=0,
+        help_text="Times the candidate left the interview tab/window during an active session.",
+    )
+
+
+class ApplicationStatusHistory(models.Model):
+    """Audit log when HR changes application (CV) workflow status."""
+
+    application = models.ForeignKey(CV, on_delete=models.CASCADE, related_name="status_history")
+    from_status = models.CharField(max_length=20, blank=True)
+    to_status = models.CharField(max_length=20)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="application_status_changes",
+    )
+    note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-changed_at", "-id"]
+        verbose_name_plural = "Application status histories"
 
 
 class VideoSubmission(models.Model):
@@ -156,6 +181,12 @@ class VideoSubmission(models.Model):
 
 
 class Question(models.Model):
+    class ResponseType(models.TextChoices):
+        TEXT = "text", "Text"
+        VIDEO = "video", "Video"
+        AUDIO = "audio", "Audio"
+        MULTIPLE_CHOICE = "multiple_choice", "Multiple choice"
+
     ANSWER_OPTION_1 = "option_1"
     ANSWER_OPTION_2 = "option_2"
     ANSWER_OPTION_3 = "option_3"
@@ -166,19 +197,36 @@ class Question(models.Model):
         (ANSWER_OPTION_3, "Option 3"),
     ]
 
+    job_post = models.ForeignKey(
+        JobPost,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="interview_questions",
+        help_text="Job template question (HR-managed). Cloned into sessions on interview start.",
+    )
     interview_session = models.ForeignKey(
         InterviewSession,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="session_questions",
-        help_text="When set, this question is part of that interview room (not shown globally).",
+        help_text="When set, this question belongs to a live interview session.",
     )
+    response_type = models.CharField(
+        max_length=20,
+        choices=ResponseType.choices,
+        default=ResponseType.MULTIPLE_CHOICE,
+    )
+    sort_order = models.PositiveIntegerField(default=0)
     text = models.TextField()
-    option_1 = models.CharField(max_length=255)
-    option_2 = models.CharField(max_length=255)
-    option_3 = models.CharField(max_length=255)
-    correct_answer = models.CharField(max_length=10, choices=ANSWER_CHOICES)
+    option_1 = models.CharField(max_length=255, blank=True)
+    option_2 = models.CharField(max_length=255, blank=True)
+    option_3 = models.CharField(max_length=255, blank=True)
+    correct_answer = models.CharField(max_length=10, choices=ANSWER_CHOICES, blank=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
 
 
 class Answer(models.Model):
@@ -186,4 +234,7 @@ class Answer(models.Model):
         InterviewSession, on_delete=models.CASCADE, related_name="answers"
     )
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="answers")
-    selected_answer = models.CharField(max_length=10, choices=Question.ANSWER_CHOICES)
+    selected_answer = models.CharField(max_length=10, choices=Question.ANSWER_CHOICES, blank=True)
+    text_response = models.TextField(blank=True)
+    media_file = models.FileField(upload_to="interview_answers/", null=True, blank=True)
+    answered_at = models.DateTimeField(auto_now=True)

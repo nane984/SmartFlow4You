@@ -3,6 +3,7 @@
 from rest_framework import permissions
 
 from .roles import (
+    DESIGN_STAFF_ROLES,
     HR_CANDIDATE_ROLES,
     HR_STAFF_ROLES,
     PROCUREMENT_STAFF_ROLES,
@@ -20,7 +21,7 @@ class IsAdmin(permissions.BasePermission):
 
 
 class IsProcurementStaff(permissions.BasePermission):
-    """admin + tender_user — create/manage tenders, companies, view all offers."""
+    """admin + tender + tender_user — create/manage tenders, companies, view all offers."""
 
     message = "Procurement staff access required."
 
@@ -61,3 +62,12 @@ class IsCandidate(permissions.BasePermission):
 
     def has_permission(self, request, view) -> bool:
         return user_has_role(request.user, HR_CANDIDATE_ROLES)
+
+
+class IsDesignStaff(permissions.BasePermission):
+    """Interior design / CAD module — admin and designer only."""
+
+    message = "Designer access required."
+
+    def has_permission(self, request, view) -> bool:
+        return user_has_role(request.user, DESIGN_STAFF_ROLES)

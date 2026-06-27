@@ -201,6 +201,18 @@ export default function TenderList() {
                                         <span className="font-medium text-slate-600">Company:</span>{" "}
                                         {companyNameById.get(t.investor) ?? `Company #${t.investor}`}
                                     </p>
+                                    {t.source_url ? (
+                                        <p className="mt-1 text-sm">
+                                            <a
+                                                href={t.source_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="font-medium text-brand-700 hover:underline"
+                                            >
+                                                Open source link
+                                            </a>
+                                        </p>
+                                    ) : null}
                                     {t.document ? (
                                         <p className="mt-1 text-sm">
                                             <a

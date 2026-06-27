@@ -16,7 +16,7 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
 export const APPLICATION_STATUS_CANDIDATE_HINTS: Record<ApplicationStatus, string> = {
     submitted: "Your application was received. HR will review your CV soon.",
     reviewed: "HR has reviewed your CV and will decide on the next step.",
-    interview: "You moved to the interview stage. HR may contact you with details.",
+    interview: "You are in the interview stage. Open your interview session and answer the job questions.",
     accepted: "Congratulations — you were selected for this position.",
     rejected: "Thank you for applying. HR selected another candidate for this role.",
 };

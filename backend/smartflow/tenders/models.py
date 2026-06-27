@@ -501,3 +501,80 @@ class FinalOffer(models.Model):
         tender = cast(Tender, self.tender)
         offer_pk = getattr(self, "supplier_offer_id", None) or "—"
         return f"Final: {tender.title} → Offer #{offer_pk}"
+
+
+class Procurement(models.Model):
+    """External procurement notice tracked by tender staff (portal link, buyer, deadline)."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        CLOSED = "closed", "Closed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class Category(models.TextChoices):
+        GOODS = "goods", "Goods"
+        SERVICES = "services", "Services"
+        WORKS = "works", "Works"
+        MIXED = "mixed", "Mixed"
+        OTHER = "other", "Other"
+
+    title = models.CharField(max_length=255)
+    reference_number = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="External notice or tender reference number.",
+    )
+    description = models.TextField(blank=True)
+    link = models.URLField(
+        max_length=500,
+        help_text="URL to the procurement notice on a public portal.",
+    )
+    buyer = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Contracting authority or buyer organization.",
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        default=Category.OTHER,
+        db_index=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
+    deadline = models.DateTimeField(null=True, blank=True)
+    estimated_value = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    currency = models.CharField(max_length=3, default="EUR")
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="procurements_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-deadline", "-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["status", "deadline"]),
+            models.Index(fields=["category", "status"]),
+        ]
+
+    def __str__(self) -> str:
+        ref = self.reference_number.strip()
+        if ref:
+            return f"{self.title} ({ref})"
+        return self.title

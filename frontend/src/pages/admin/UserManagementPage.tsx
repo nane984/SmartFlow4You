@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type CSSProperties, type FocusEvent } from "react";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import Field from "../../components/ui/Field";
@@ -21,6 +21,7 @@ type UserFormState = {
     last_name: string;
     role: string;
     password: string;
+    password_confirm: string;
 };
 
 type EditUserFormState = {
@@ -36,9 +37,11 @@ type EditUserFormState = {
 const ROLE_OPTIONS = [
     ROLES.ADMIN,
     ROLES.HR_ADMIN,
+    ROLES.TENDER,
     ROLES.TENDER_USER,
     ROLES.SUPPLIER,
     ROLES.CANDIDATE,
+    ROLES.DESIGNER,
     ROLES.INTERVIEWER,
 ];
 
@@ -49,7 +52,70 @@ const EMPTY_FORM: UserFormState = {
     last_name: "",
     role: ROLES.CANDIDATE,
     password: "",
+    password_confirm: "",
 };
+
+/** Reduce browser/password-manager autofill on admin create-user fields. */
+const NO_AUTOFILL = {
+    autoComplete: "off",
+    "data-lpignore": "true",
+    "data-1p-ignore": "true",
+    "data-bwignore": "true",
+    "data-form-type": "other",
+} as const;
+
+const maskedPasswordStyle = { WebkitTextSecurity: "disc" } as CSSProperties;
+
+function unlockOnFocus(e: FocusEvent<HTMLInputElement>) {
+    e.currentTarget.removeAttribute("readOnly");
+}
+
+function CreateUserPasswordFields({
+    password,
+    passwordConfirm,
+    onPasswordChange,
+    onPasswordConfirmChange,
+}: {
+    password: string;
+    passwordConfirm: string;
+    onPasswordChange: (value: string) => void;
+    onPasswordConfirmChange: (value: string) => void;
+}) {
+    const fieldId = useId().replace(/:/g, "");
+
+    return (
+        <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Password">
+                <input
+                    type="text"
+                    className={controlClass}
+                    id={`${fieldId}-pw`}
+                    name={`${fieldId}-pw`}
+                    style={maskedPasswordStyle}
+                    {...NO_AUTOFILL}
+                    readOnly
+                    onFocus={unlockOnFocus}
+                    value={password}
+                    onChange={(e) => onPasswordChange(e.target.value)}
+                />
+            </Field>
+            <Field label="Re-enter password">
+                <input
+                    type="text"
+                    className={controlClass}
+                    id={`${fieldId}-pw2`}
+                    name={`${fieldId}-pw2`}
+                    style={maskedPasswordStyle}
+                    {...NO_AUTOFILL}
+                    readOnly
+                    onFocus={unlockOnFocus}
+                    value={passwordConfirm}
+                    onChange={(e) => onPasswordConfirmChange(e.target.value)}
+                />
+            </Field>
+        </div>
+    );
+}
 
 function toErrorMessage(err: unknown, fallback: string): string {
     const ax = err as { response?: { data?: unknown } };
@@ -71,6 +137,7 @@ export default function UserManagementPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [form, setForm] = useState<UserFormState>(EMPTY_FORM);
+    const [createStep, setCreateStep] = useState<1 | 2>(1);
     const [creating, setCreating] = useState(false);
     const [busyId, setBusyId] = useState<number | null>(null);
     const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -107,9 +174,23 @@ export default function UserManagementPage() {
         return users.filter((u) => u.role === roleFilter);
     }, [users, roleFilter]);
 
+    const handleContinueToPassword = () => {
+        if (!form.username.trim() || !form.email.trim()) {
+            setError("Username and email are required.");
+            return;
+        }
+        setError(null);
+        setForm((s) => ({ ...s, password: "", password_confirm: "" }));
+        setCreateStep(2);
+    };
+
     const handleCreate = async () => {
         if (!form.username.trim() || !form.email.trim() || !form.password) {
             setError("Username, email and password are required.");
+            return;
+        }
+        if (form.password !== form.password_confirm) {
+            setError("Passwords do not match.");
             return;
         }
         setCreating(true);
@@ -124,6 +205,7 @@ export default function UserManagementPage() {
                 password: form.password,
             });
             setForm(EMPTY_FORM);
+            setCreateStep(1);
             await loadUsers();
         } catch (e) {
             setError(toErrorMessage(e, "Failed to create user."));
@@ -202,64 +284,124 @@ export default function UserManagementPage() {
             ) : null}
 
             <Card className="space-y-4">
-                <h2 className="text-base font-semibold text-slate-900">Create new user</h2>
-                <div className="grid gap-3 md:grid-cols-2">
-                    <Field label="Username">
-                        <input
-                            className={controlClass}
-                            value={form.username}
-                            onChange={(e) => setForm((s) => ({ ...s, username: e.target.value }))}
-                        />
-                    </Field>
-                    <Field label="Email">
-                        <input
-                            type="email"
-                            className={controlClass}
-                            value={form.email}
-                            onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
-                        />
-                    </Field>
-                    <Field label="First name">
-                        <input
-                            className={controlClass}
-                            value={form.first_name}
-                            onChange={(e) => setForm((s) => ({ ...s, first_name: e.target.value }))}
-                        />
-                    </Field>
-                    <Field label="Last name">
-                        <input
-                            className={controlClass}
-                            value={form.last_name}
-                            onChange={(e) => setForm((s) => ({ ...s, last_name: e.target.value }))}
-                        />
-                    </Field>
-                    <Field label="Role">
-                        <select
-                            className={controlClass}
-                            value={form.role}
-                            onChange={(e) => setForm((s) => ({ ...s, role: e.target.value }))}
-                        >
-                            {ROLE_OPTIONS.map((role) => (
-                                <option key={role} value={role}>
-                                    {roleLabel(role)}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                    <Field label="Password">
-                        <input
-                            type="password"
-                            className={controlClass}
-                            value={form.password}
-                            onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
-                        />
-                    </Field>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-slate-900">Create new user</h2>
+                    <p className="text-xs font-medium text-slate-500">
+                        Step {createStep} of 2
+                    </p>
                 </div>
-                <div className="flex justify-end">
-                    <Button type="button" onClick={() => void handleCreate()} disabled={creating}>
-                        {creating ? "Creating..." : "Create user"}
-                    </Button>
-                </div>
+
+                {createStep === 1 ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                        <Field label="Username">
+                            <input
+                                className={controlClass}
+                                name="sf-admin-create-login"
+                                {...NO_AUTOFILL}
+                                readOnly
+                                onFocus={unlockOnFocus}
+                                value={form.username}
+                                onChange={(e) => setForm((s) => ({ ...s, username: e.target.value }))}
+                            />
+                        </Field>
+                        <Field label="Email">
+                            <input
+                                type="email"
+                                className={controlClass}
+                                name="sf-admin-create-mail"
+                                {...NO_AUTOFILL}
+                                readOnly
+                                onFocus={unlockOnFocus}
+                                value={form.email}
+                                onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
+                            />
+                        </Field>
+                        <Field label="First name">
+                            <input
+                                className={controlClass}
+                                name="sf-admin-create-fn"
+                                {...NO_AUTOFILL}
+                                readOnly
+                                onFocus={unlockOnFocus}
+                                value={form.first_name}
+                                onChange={(e) => setForm((s) => ({ ...s, first_name: e.target.value }))}
+                            />
+                        </Field>
+                        <Field label="Last name">
+                            <input
+                                className={controlClass}
+                                name="sf-admin-create-ln"
+                                {...NO_AUTOFILL}
+                                readOnly
+                                onFocus={unlockOnFocus}
+                                value={form.last_name}
+                                onChange={(e) => setForm((s) => ({ ...s, last_name: e.target.value }))}
+                            />
+                        </Field>
+                        <Field label="Role">
+                            <select
+                                className={controlClass}
+                                name="sf-admin-create-role"
+                                {...NO_AUTOFILL}
+                                value={form.role}
+                                onChange={(e) => setForm((s) => ({ ...s, role: e.target.value }))}
+                            >
+                                {ROLE_OPTIONS.map((role) => (
+                                    <option key={role} value={role}>
+                                        {roleLabel(role)}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+                        <div className="flex justify-end md:col-span-2">
+                            <Button type="button" onClick={handleContinueToPassword}>
+                                Next: set password
+                            </Button>
+                        </div>
+                    </div>
+                ) : (
+                    <form
+                        className="space-y-4"
+                        autoComplete="off"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            void handleCreate();
+                        }}
+                    >
+                        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                            Account: <span className="font-medium text-slate-900">{form.username}</span>
+                            {" · "}
+                            {form.email}
+                            {" · "}
+                            {roleLabel(form.role)}
+                        </p>
+                        <CreateUserPasswordFields
+                            key={form.username}
+                            password={form.password}
+                            passwordConfirm={form.password_confirm}
+                            onPasswordChange={(value) => setForm((s) => ({ ...s, password: value }))}
+                            onPasswordConfirmChange={(value) =>
+                                setForm((s) => ({ ...s, password_confirm: value }))
+                            }
+                        />
+                        <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => {
+                                    setError(null);
+                                    setCreateStep(1);
+                                }}
+                                disabled={creating}
+                            >
+                                Back
+                            </Button>
+                            <Button type="submit" disabled={creating}>
+                                {creating ? "Creating..." : "Create user"}
+                            </Button>
+                        </div>
+                    </form>
+                )}
             </Card>
 
             <Card className="space-y-4">
@@ -358,10 +500,12 @@ export default function UserManagementPage() {
                         <h3 className="text-lg font-semibold text-slate-900">
                             Edit user: {editTarget.username}
                         </h3>
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div className="grid gap-3 md:grid-cols-2" autoComplete="off">
                             <Field label="Username">
                                 <input
                                     className={controlClass}
+                                    name="edit-user-username"
+                                    autoComplete="off"
                                     value={editForm.username}
                                     onChange={(e) =>
                                         setEditForm((s) => ({ ...s, username: e.target.value }))
@@ -372,6 +516,8 @@ export default function UserManagementPage() {
                                 <input
                                     type="email"
                                     className={controlClass}
+                                    name="edit-user-email"
+                                    autoComplete="off"
                                     value={editForm.email}
                                     onChange={(e) =>
                                         setEditForm((s) => ({ ...s, email: e.target.value }))
@@ -381,6 +527,8 @@ export default function UserManagementPage() {
                             <Field label="First name">
                                 <input
                                     className={controlClass}
+                                    name="edit-user-first-name"
+                                    autoComplete="off"
                                     value={editForm.first_name}
                                     onChange={(e) =>
                                         setEditForm((s) => ({ ...s, first_name: e.target.value }))
@@ -390,6 +538,8 @@ export default function UserManagementPage() {
                             <Field label="Last name">
                                 <input
                                     className={controlClass}
+                                    name="edit-user-last-name"
+                                    autoComplete="off"
                                     value={editForm.last_name}
                                     onChange={(e) =>
                                         setEditForm((s) => ({ ...s, last_name: e.target.value }))
@@ -399,6 +549,8 @@ export default function UserManagementPage() {
                             <Field label="Role">
                                 <select
                                     className={controlClass}
+                                    name="edit-user-role"
+                                    autoComplete="off"
                                     value={editForm.role}
                                     onChange={(e) =>
                                         setEditForm((s) => ({ ...s, role: e.target.value }))
@@ -415,6 +567,8 @@ export default function UserManagementPage() {
                                 <input
                                     type="password"
                                     className={controlClass}
+                                    name="edit-user-password"
+                                    autoComplete="new-password"
                                     value={editForm.password}
                                     onChange={(e) =>
                                         setEditForm((s) => ({ ...s, password: e.target.value }))

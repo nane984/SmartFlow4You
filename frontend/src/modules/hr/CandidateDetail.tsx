@@ -3,10 +3,16 @@ import { useParams } from "react-router-dom";
 import Card from "../../components/ui/Card";
 import PageHeader from "../../components/ui/PageHeader";
 import LinkButton from "../../components/ui/LinkButton";
+import {
+    applicationStatusBadgeClass,
+    applicationStatusLabel,
+} from "../../modules/hr/applicationStatus";
+import AnswerReviewPanel from "./AnswerReviewPanel";
 import type { CV } from "./cv.types";
-import type { InterviewSession } from "./interviewRoom.types";
+import type { InterviewSession, RoomQuestion } from "./interviewRoom.types";
 import {
     getCvById,
+    getCvFileBlob,
     getInterviewSessions,
     getJobPosts,
     getSessionAnswersReview,
@@ -14,10 +20,13 @@ import {
     type AnswerReview,
     type VideoSubmission,
 } from "./candidateDetail.api";
+import { getInterviewQuestions } from "./interviewRoom.api";
+import { mediaUrl } from "../../util/mediaUrl";
 
 type SessionExtras = {
     videos: VideoSubmission[];
     answers: AnswerReview[];
+    questions: RoomQuestion[];
 };
 
 function formatDate(value: string | null): string {
@@ -33,6 +42,19 @@ function toAbsoluteMedia(url: string): string {
     return `http://localhost:8000/${url}`;
 }
 
+function cvFileName(url: string): string {
+    const segment = url.split("/").pop()?.split("?")[0] ?? "";
+    try {
+        return decodeURIComponent(segment) || "CV document";
+    } catch {
+        return segment || "CV document";
+    }
+}
+
+function isPdfCv(url: string): boolean {
+    return /\.pdf($|\?)/i.test(url);
+}
+
 export default function CandidateDetail() {
     const { id } = useParams<{ id: string }>();
     const cvId = id ? Number.parseInt(id, 10) : NaN;
@@ -42,6 +64,9 @@ export default function CandidateDetail() {
     const [sessionExtras, setSessionExtras] = useState<Record<number, SessionExtras>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+    const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
+    const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
 
     useEffect(() => {
         if (!Number.isFinite(cvId) || cvId < 1) {
@@ -70,11 +95,12 @@ export default function CandidateDetail() {
                     sessionsData
                         .filter((s) => s.cv === cvData.id)
                         .map(async (session) => {
-                            const [videos, answers] = await Promise.all([
+                            const [videos, answers, questions] = await Promise.all([
                                 getSessionVideos(session.id),
                                 getSessionAnswersReview(session.id),
+                                getInterviewQuestions(session.id),
                             ]);
-                            return [session.id, { videos, answers }] as const;
+                            return [session.id, { videos, answers, questions }] as const;
                         })
                 );
                 if (!cancelled) {
@@ -94,6 +120,55 @@ export default function CandidateDetail() {
             cancelled = true;
         };
     }, [cvId]);
+
+    const cvFileUrl = cv?.file ? toAbsoluteMedia(cv.file) : null;
+    const cvIsPdf = cvFileUrl ? isPdfCv(cvFileUrl) : false;
+
+    useEffect(() => {
+        if (!cv || !cvIsPdf) {
+            setPdfPreviewUrl((current) => {
+                if (current) URL.revokeObjectURL(current);
+                return null;
+            });
+            setPdfPreviewError(null);
+            setPdfPreviewLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+
+        void (async () => {
+            setPdfPreviewLoading(true);
+            setPdfPreviewError(null);
+            try {
+                const blob = await getCvFileBlob(cv.id);
+                if (cancelled) return;
+                const objectUrl = URL.createObjectURL(blob);
+                setPdfPreviewUrl((current) => {
+                    if (current) URL.revokeObjectURL(current);
+                    return objectUrl;
+                });
+            } catch {
+                if (!cancelled) {
+                    setPdfPreviewError("Could not load CV preview. Use Download CV instead.");
+                    setPdfPreviewUrl((current) => {
+                        if (current) URL.revokeObjectURL(current);
+                        return null;
+                    });
+                }
+            } finally {
+                if (!cancelled) setPdfPreviewLoading(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            setPdfPreviewUrl((current) => {
+                if (current) URL.revokeObjectURL(current);
+                return null;
+            });
+        };
+    }, [cv, cvIsPdf]);
 
     const sortedSessions = useMemo(() => {
         return [...sessions].sort((a, b) => a.start_time.localeCompare(b.start_time));
@@ -123,8 +198,8 @@ export default function CandidateDetail() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Candidate Detail"
-                description="Candidate profile with sessions, submitted videos, and answer review."
+                title={cv.aplicant_name}
+                description="Application details, CV document, and interview review."
                 actions={
                     <LinkButton to="/dashboard" variant="secondary" size="sm">
                         Back to dashboard
@@ -133,20 +208,89 @@ export default function CandidateDetail() {
             />
 
             <Card>
-                <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
                     <div>
-                        <dt className="font-medium text-slate-500">Applicant Name</dt>
+                        <dt className="font-medium text-slate-500">Applicant name</dt>
                         <dd className="mt-1 text-slate-900">{cv.aplicant_name}</dd>
                     </div>
                     <div>
-                        <dt className="font-medium text-slate-500">Job Post</dt>
+                        <dt className="font-medium text-slate-500">Job post</dt>
                         <dd className="mt-1 text-slate-900">{jobTitle}</dd>
                     </div>
                     <div>
-                        <dt className="font-medium text-slate-500">CV Score</dt>
+                        <dt className="font-medium text-slate-500">Applied</dt>
+                        <dd className="mt-1 text-slate-900">{formatDate(cv.submitted_at ?? null)}</dd>
+                    </div>
+                    <div>
+                        <dt className="font-medium text-slate-500">Status</dt>
+                        <dd className="mt-1">
+                            <span className={applicationStatusBadgeClass(cv.status)}>
+                                {cv.status_label ?? applicationStatusLabel(cv.status)}
+                            </span>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="font-medium text-slate-500">Processed</dt>
+                        <dd className="mt-1 text-slate-900">{cv.processed ? "Yes" : "No"}</dd>
+                    </div>
+                    <div>
+                        <dt className="font-medium text-slate-500">CV score</dt>
                         <dd className="mt-1 text-slate-900">{cv.score ?? "—"}</dd>
                     </div>
                 </dl>
+            </Card>
+
+            <Card className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 className="text-lg font-semibold text-slate-900">Submitted CV</h2>
+                        <p className="mt-1 text-sm text-slate-600">
+                            {cvFileUrl ? cvFileName(cvFileUrl) : "No file uploaded for this application."}
+                        </p>
+                    </div>
+                    {cvFileUrl ? (
+                        <a
+                            href={cvFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center rounded-lg border border-transparent bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
+                        >
+                            Download CV
+                        </a>
+                    ) : null}
+                </div>
+                {cvFileUrl ? (
+                    cvIsPdf ? (
+                        pdfPreviewLoading ? (
+                            <p className="text-sm text-slate-600">Loading CV preview…</p>
+                        ) : pdfPreviewError ? (
+                            <p className="text-sm text-rose-700">{pdfPreviewError}</p>
+                        ) : pdfPreviewUrl ? (
+                            <iframe
+                                title={`CV — ${cv.aplicant_name}`}
+                                src={pdfPreviewUrl}
+                                className="h-[min(70vh,720px)] w-full rounded-xl border border-slate-200 bg-white"
+                            />
+                        ) : null
+                    ) : (
+                        <p className="text-sm text-slate-600">
+                            Preview is available for PDF files. Use{" "}
+                            <a
+                                href={cvFileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-medium text-brand-700 underline"
+                            >
+                                Download CV
+                            </a>{" "}
+                            to open Word documents.
+                        </p>
+                    )
+                ) : (
+                    <p className="text-sm text-rose-700">
+                        The CV file is missing from this application record.
+                    </p>
+                )}
             </Card>
 
             <Card className="overflow-hidden p-0">
@@ -161,12 +305,13 @@ export default function CandidateDetail() {
                                 <th className="px-6 py-3 font-medium">Start Time</th>
                                 <th className="px-6 py-3 font-medium">End Time</th>
                                 <th className="px-6 py-3 font-medium">Score</th>
+                                <th className="px-6 py-3 font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {sortedSessions.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-5 text-slate-500">
+                                    <td colSpan={5} className="px-6 py-5 text-slate-500">
                                         No interview sessions found for this candidate.
                                     </td>
                                 </tr>
@@ -179,6 +324,15 @@ export default function CandidateDetail() {
                                         <td className="px-6 py-4 text-slate-700">{formatDate(session.start_time)}</td>
                                         <td className="px-6 py-4 text-slate-700">{formatDate(session.end_time)}</td>
                                         <td className="px-6 py-4 text-slate-700">{session.score ?? "—"}</td>
+                                        <td className="px-6 py-4">
+                                            <LinkButton
+                                                to={`/hr/interview/${session.id}`}
+                                                variant="secondary"
+                                                size="sm"
+                                            >
+                                                Review
+                                            </LinkButton>
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -188,55 +342,37 @@ export default function CandidateDetail() {
             </Card>
 
             {sortedSessions.map((session) => {
-                const extras = sessionExtras[session.id] ?? { videos: [], answers: [] };
+                const extras = sessionExtras[session.id] ?? { videos: [], answers: [], questions: [] };
                 return (
                     <Card key={session.id} className="space-y-4">
-                        <h3 className="text-base font-semibold text-slate-900">
-                            Session #{session.id} media and answer review
-                        </h3>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h3 className="text-base font-semibold text-slate-900">
+                                Session #{session.id} — answers & media
+                            </h3>
+                            <LinkButton to={`/hr/interview/${session.id}`} variant="secondary" size="sm">
+                                Full review
+                            </LinkButton>
+                        </div>
 
                         <div>
-                            <h4 className="mb-2 text-sm font-medium text-slate-700">Video Submission</h4>
+                            <h4 className="mb-2 text-sm font-medium text-slate-700">Session recording</h4>
                             {extras.videos.length === 0 ? (
-                                <p className="text-sm text-slate-500">No video submission found.</p>
+                                <p className="text-sm text-slate-500">No session video uploaded yet.</p>
                             ) : (
-                                <video
-                                    controls
-                                    className="w-full max-w-2xl rounded-xl border border-slate-200 bg-black"
-                                    src={toAbsoluteMedia(extras.videos[0].video)}
-                                />
+                                extras.videos.map((video) => (
+                                    <video
+                                        key={video.id}
+                                        controls
+                                        className="w-full max-w-2xl rounded-xl border border-slate-200 bg-black"
+                                        src={mediaUrl(video.video)}
+                                    />
+                                ))
                             )}
                         </div>
 
                         <div>
-                            <h4 className="mb-2 text-sm font-medium text-slate-700">Answers Review</h4>
-                            {extras.answers.length === 0 ? (
-                                <p className="text-sm text-slate-500">No submitted answers for this session.</p>
-                            ) : (
-                                <ul className="space-y-2">
-                                    {extras.answers.map((a) => (
-                                        <li
-                                            key={a.id}
-                                            className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2"
-                                        >
-                                            <p className="text-sm font-medium text-slate-900">{a.question_text}</p>
-                                            <p className="mt-1 text-xs text-slate-600">
-                                                Selected: <span className="font-medium">{a.selected_answer}</span>
-                                                {" · "}Correct: <span className="font-medium">{a.correct_answer}</span>
-                                            </p>
-                                            <span
-                                                className={
-                                                    a.is_correct
-                                                        ? "mt-1 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700"
-                                                        : "mt-1 inline-block rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700"
-                                                }
-                                            >
-                                                {a.is_correct ? "Correct" : "Incorrect"}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+                            <h4 className="mb-2 text-sm font-medium text-slate-700">Question answers</h4>
+                            <AnswerReviewPanel answers={extras.answers} questions={extras.questions} />
                         </div>
                     </Card>
                 );

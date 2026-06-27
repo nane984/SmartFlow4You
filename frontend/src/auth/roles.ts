@@ -6,10 +6,12 @@
  */
 export const ROLES = {
     ADMIN: "admin",
+    TENDER: "tender",
     TENDER_USER: "tender_user",
     SUPPLIER: "supplier",
     HR_ADMIN: "hr_admin",
     CANDIDATE: "candidate",
+    DESIGNER: "designer",
     /** @deprecated demo alias — maps to tender_user */
     INVESTOR: "investor",
     /** @deprecated legacy — maps to hr_admin */
@@ -23,10 +25,12 @@ export type AppRole = (typeof ROLES)[keyof typeof ROLES];
 /** Roles stored canonically on the backend User model */
 export type CanonicalRole =
     | typeof ROLES.ADMIN
+    | typeof ROLES.TENDER
     | typeof ROLES.TENDER_USER
     | typeof ROLES.SUPPLIER
     | typeof ROLES.HR_ADMIN
-    | typeof ROLES.CANDIDATE;
+    | typeof ROLES.CANDIDATE
+    | typeof ROLES.DESIGNER;
 
 const ALL_ROLES: AppRole[] = Object.values(ROLES);
 
@@ -38,10 +42,12 @@ const ROLE_ALIASES: Record<string, AppRole> = {
 /** Human-readable labels for UI (canonical + legacy keys). */
 export const ROLE_LABELS: Record<string, string> = {
     admin: "Administrator",
+    tender: "Tender",
     tender_user: "Tender user",
     supplier: "Supplier",
     hr_admin: "HR Admin",
     candidate: "Candidate",
+    designer: "Designer",
     interviewer: "Interviewer",
     investor: "Tender user",
     hr: "HR Admin",
@@ -76,6 +82,7 @@ export function roleInList(userRole: AppRole | null, allowed: AppRole[]): boolea
 
 export const PROCUREMENT_STAFF_ROLES: AppRole[] = [
     ROLES.ADMIN,
+    ROLES.TENDER,
     ROLES.TENDER_USER,
     ROLES.INVESTOR,
 ];
@@ -90,3 +97,5 @@ export const PROCUREMENT_ROLES: AppRole[] = [
 export const HR_STAFF_ROLES: AppRole[] = [ROLES.ADMIN, ROLES.HR_ADMIN, ROLES.HR];
 
 export const HR_INTERVIEWER_ROLES: AppRole[] = [ROLES.ADMIN, ROLES.INTERVIEWER];
+
+export const DESIGN_STAFF_ROLES: AppRole[] = [ROLES.ADMIN, ROLES.DESIGNER];

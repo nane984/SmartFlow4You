@@ -8,6 +8,7 @@ import type { JobPostingStatus } from "../../components/hr/JobStatusSelector";
 import { controlClass } from "../../components/ui/inputStyles";
 import { cn } from "../../components/ui/cn";
 import { getAllJobsForHr, updateJobPostingStatus, type Job } from "./jobs.api";
+import JobInterviewQuestionsPanel from "../../modules/hr/JobInterviewQuestionsPanel";
 import { formatJobSalary, jobEffectiveStatus } from "./jobFormDefaults";
 
 type StatusFilter = "all" | "published" | "closed" | "draft";
@@ -291,6 +292,11 @@ export default function JobListPage() {
                                     </p>
                                 </section>
                             ) : null}
+
+                            <JobInterviewQuestionsPanel
+                                jobPostId={selectedJob.id}
+                                jobTitle={selectedJob.job_title}
+                            />
                         </div>
                     )}
                 </Card>

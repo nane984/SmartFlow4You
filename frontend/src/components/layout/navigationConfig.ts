@@ -1,5 +1,6 @@
 import type { AppRole } from "../../auth/roles";
 import {
+    DESIGN_STAFF_ROLES,
     HR_INTERVIEWER_ROLES,
     HR_STAFF_ROLES,
     PROCUREMENT_STAFF_ROLES,
@@ -26,6 +27,7 @@ export type NavSection = {
 
 const ALL_INTERNAL: AppRole[] = [
     ROLES.ADMIN,
+    ROLES.TENDER,
     ROLES.TENDER_USER,
     ROLES.INVESTOR,
     ROLES.SUPPLIER,
@@ -33,6 +35,7 @@ const ALL_INTERNAL: AppRole[] = [
     ROLES.HR,
     ROLES.CANDIDATE,
     ROLES.INTERVIEWER,
+    ROLES.DESIGNER,
 ];
 
 /**
@@ -110,6 +113,22 @@ export const NAV_SECTIONS: NavSection[] = [
                 label: "My applications",
                 roles: [ROLES.CANDIDATE, ROLES.ADMIN],
             },
+            {
+                to: "/candidate/interviews",
+                label: "My interviews",
+                roles: [ROLES.CANDIDATE, ROLES.ADMIN],
+            },
+        ],
+    },
+    {
+        id: "design",
+        label: "Design",
+        roles: DESIGN_STAFF_ROLES,
+        items: [
+            { to: "/interior", label: "Design studio", roles: DESIGN_STAFF_ROLES },
+            { to: "/interior/catalog", label: "Furniture catalog", roles: DESIGN_STAFF_ROLES },
+            { to: "/interior/electrical-catalog", label: "Electrical catalog", roles: DESIGN_STAFF_ROLES },
+            { to: "/interior/structure-catalog", label: "Structure catalog", roles: DESIGN_STAFF_ROLES },
         ],
     },
     {

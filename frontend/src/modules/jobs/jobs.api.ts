@@ -50,7 +50,7 @@ export async function updateJobPostingStatus(
     id: number,
     posting_status: "draft" | "published" | "closed"
 ): Promise<Job> {
-    const res = await api.patch<Job>(`jobs/${id}/`, { posting_status });
+    const res = await api.patch<Job>(`hr/jobpost/${id}/`, { posting_status });
     return res.data;
 }
 
@@ -100,7 +100,7 @@ export async function createJob(payload: CreateJobPayload): Promise<Job> {
         job_salary_min: payload.job_salary_min ? Number(payload.job_salary_min) : null,
         job_salary_max: payload.job_salary_max ? Number(payload.job_salary_max) : null,
     };
-    const res = await api.post<Job>("jobs/", body);
+    const res = await api.post<Job>("hr/jobpost/", body);
     return res.data;
 }
 

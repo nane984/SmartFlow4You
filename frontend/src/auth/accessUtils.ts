@@ -69,6 +69,7 @@ export function roleHomePath(role: AppRole | null): string {
     switch (normalized) {
         case ROLES.ADMIN:
             return "/dashboard";
+        case ROLES.TENDER:
         case ROLES.TENDER_USER:
             return "/tenders";
         case ROLES.SUPPLIER:
@@ -79,6 +80,8 @@ export function roleHomePath(role: AppRole | null): string {
             return "/interviewer-dashboard";
         case ROLES.CANDIDATE:
             return "/candidate";
+        case ROLES.DESIGNER:
+            return "/interior";
         default:
             return "/dashboard";
     }

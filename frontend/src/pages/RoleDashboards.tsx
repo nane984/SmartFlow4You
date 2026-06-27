@@ -1,19 +1,30 @@
 import PageHeader from "../components/ui/PageHeader";
+import LinkButton from "../components/ui/LinkButton";
 import {
     CandidateApplicationsList,
     useCandidateApplications,
 } from "../components/dashboard/CandidateApplicationsPanel";
 
 export function CandidateDashboardPage() {
-    const { applications, loading, error } = useCandidateApplications();
+    const { applications, interviews, loading, error } = useCandidateApplications();
 
     return (
         <>
             <PageHeader
                 title="My applications"
                 description="Track the status of jobs you applied for."
+                actions={
+                    <LinkButton to="/candidate/interviews" variant="secondary" size="sm">
+                        My interviews
+                    </LinkButton>
+                }
             />
-            <CandidateApplicationsList applications={applications} loading={loading} error={error} />
+            <CandidateApplicationsList
+                applications={applications}
+                interviews={interviews}
+                loading={loading}
+                error={error}
+            />
         </>
     );
 }

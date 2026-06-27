@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Answer, Candidate, CV, InterviewSession, JobPost, Question, VideoSubmission
+from .models import Answer, ApplicationStatusHistory, Candidate, CV, InterviewSession, JobPost, Question, VideoSubmission
 
 
 @admin.register(Candidate)
@@ -36,10 +36,17 @@ class VideoSubmissionAdmin(admin.ModelAdmin):
     list_filter = ("timestamp",)
 
 
+@admin.register(ApplicationStatusHistory)
+class ApplicationStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "application", "from_status", "to_status", "changed_at", "changed_by")
+    list_filter = ("to_status",)
+
+
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    list_display = ("id", "interview_session", "text", "correct_answer")
-    search_fields = ("text", "option_1", "option_2", "option_3")
+    list_display = ("id", "job_post", "interview_session", "response_type", "text")
+    list_filter = ("response_type",)
+    search_fields = ("text",)
 
 
 @admin.register(Answer)

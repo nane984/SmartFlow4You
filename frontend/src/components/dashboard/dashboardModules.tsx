@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { AppRole } from "../../auth/roles";
 import {
+    DESIGN_STAFF_ROLES,
     HR_INTERVIEWER_ROLES,
     HR_STAFF_ROLES,
     PROCUREMENT_ROLES,
@@ -191,6 +192,23 @@ export const DASHBOARD_MODULES: DashboardModule[] = [
         ),
     },
     {
+        id: "interior-design",
+        to: "/interior",
+        title: "Design studio",
+        description: "CAD floor plans, furniture layout, 3D walkthrough, and AI space planning.",
+        accent: "from-fuchsia-500/10 to-pink-500/5 ring-fuchsia-200/60",
+        roles: DESIGN_STAFF_ROLES,
+        icon: (
+            <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+                />
+            </svg>
+        ),
+    },
+    {
         id: "time-tracking",
         to: "/time-tracking",
         title: "Time tracking",
@@ -222,4 +240,9 @@ export const ROLE_SHORTCUTS: RoleShortcut[] = [
         roles: HR_INTERVIEWER_ROLES,
     },
     { to: "/candidate-dashboard", label: "My applications", roles: [ROLES.CANDIDATE, ROLES.ADMIN] },
+    { to: "/candidate/interviews", label: "My interviews", roles: [ROLES.CANDIDATE, ROLES.ADMIN] },
+    { to: "/interior", label: "Design studio", roles: DESIGN_STAFF_ROLES },
+    { to: "/interior/catalog", label: "Furniture catalog", roles: DESIGN_STAFF_ROLES },
+    { to: "/interior/electrical-catalog", label: "Electrical catalog", roles: DESIGN_STAFF_ROLES },
+    { to: "/interior/structure-catalog", label: "Structure catalog", roles: DESIGN_STAFF_ROLES },
 ];

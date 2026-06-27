@@ -8,6 +8,8 @@ import {
     type ApplicationStatus,
 } from "../../modules/hr/applicationStatus";
 import { getMyApplications, type JobApplication } from "../../modules/jobs/jobs.api";
+import { getMyInterviewSessions } from "../../modules/hr/interviewRoom.api";
+import type { InterviewSession } from "../../modules/hr/interviewRoom.types";
 
 function formatDate(value: string | null | undefined): string {
     if (!value) return "—";
@@ -22,6 +24,7 @@ function jobIdForApplication(app: JobApplication): number | null {
 
 type CandidateApplicationsListProps = {
     applications: JobApplication[];
+    interviews: InterviewSession[];
     loading: boolean;
     error: string | null;
     compact?: boolean;
@@ -29,6 +32,7 @@ type CandidateApplicationsListProps = {
 
 export function CandidateApplicationsList({
     applications,
+    interviews,
     loading,
     error,
     compact = false,
@@ -61,6 +65,13 @@ export function CandidateApplicationsList({
             {applications.map((app) => {
                 const jobId = jobIdForApplication(app);
                 const status = app.status as ApplicationStatus;
+                const session = interviews.find(
+                    (s) => s.application_id === app.id || s.cv === app.id
+                );
+                const showInterview =
+                    status === "interview" &&
+                    session &&
+                    session.status !== "cancelled";
                 return (
                     <Card key={app.id} className={compact ? "p-4" : "p-5"}>
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -80,16 +91,35 @@ export function CandidateApplicationsList({
                             {APPLICATION_STATUS_CANDIDATE_HINTS[status] ??
                                 "Your application is being processed by HR."}
                         </p>
-                        {jobId ? (
-                            <LinkButton
-                                to={`/candidate/jobs/${jobId}`}
-                                variant="secondary"
-                                size="sm"
-                                className="mt-4"
-                            >
-                                View job
-                            </LinkButton>
-                        ) : null}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {showInterview ? (
+                                <LinkButton
+                                    to={`/candidate/interview/${session.id}`}
+                                    variant="primary"
+                                    size="sm"
+                                >
+                                    {session.status === "completed"
+                                        ? "View interview"
+                                        : session.status === "in_progress"
+                                          ? "Continue interview"
+                                          : "Start interview"}
+                                </LinkButton>
+                            ) : null}
+                            {jobId ? (
+                                <LinkButton
+                                    to={`/candidate/jobs/${jobId}`}
+                                    variant="secondary"
+                                    size="sm"
+                                >
+                                    View job
+                                </LinkButton>
+                            ) : null}
+                            {status === "interview" && !showInterview ? (
+                                <LinkButton to="/candidate/interviews" variant="secondary" size="sm">
+                                    My interviews
+                                </LinkButton>
+                            ) : null}
+                        </div>
                     </Card>
                 );
             })}
@@ -99,6 +129,7 @@ export function CandidateApplicationsList({
 
 export function useCandidateApplications() {
     const [applications, setApplications] = useState<JobApplication[]>([]);
+    const [interviews, setInterviews] = useState<InterviewSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -108,8 +139,14 @@ export function useCandidateApplications() {
             setLoading(true);
             setError(null);
             try {
-                const data = await getMyApplications();
-                if (!cancelled) setApplications(data);
+                const [apps, sessions] = await Promise.all([
+                    getMyApplications(),
+                    getMyInterviewSessions().catch(() => []),
+                ]);
+                if (!cancelled) {
+                    setApplications(apps);
+                    setInterviews(sessions);
+                }
             } catch (e) {
                 if (!cancelled) {
                     setError(e instanceof Error ? e.message : "Failed to load your applications.");
@@ -132,5 +169,5 @@ export function useCandidateApplications() {
         return map;
     }, [applications]);
 
-    return { applications, byJobId, loading, error };
+    return { applications, interviews, byJobId, loading, error };
 }

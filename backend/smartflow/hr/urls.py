@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    ApplicationStatusHistoryViewSet,
     ApplicationViewSet,
     CandidateViewSet,
     CVViewSet,
@@ -9,11 +10,14 @@ from .views import (
     InterviewSessionViewSet,
     InterviewVideoUploadAPIView,
     JobAccessViewSet,
+    JobInterviewQuestionViewSet,
     JobPostViewSet,
 )
 
 router = DefaultRouter()
 router.register("jobpost", JobPostViewSet)
+router.register("interview-questions", JobInterviewQuestionViewSet, basename="interviewquestion")
+router.register("application-status-history", ApplicationStatusHistoryViewSet, basename="applicationstatushistory")
 router.register("cvs", CVViewSet)
 router.register("interview-sessions", InterviewSessionViewSet, basename="interviewsession")
 

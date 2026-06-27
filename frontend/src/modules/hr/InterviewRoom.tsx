@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import LinkButton from "../../components/ui/LinkButton";
@@ -9,11 +9,14 @@ import {
     completeInterviewSession,
     getInterviewQuestions,
     getInterviewSession,
+    reportInterviewFocusViolation,
     startInterviewSession,
     submitInterviewAnswers,
     uploadInterviewVideo,
 } from "./interviewRoom.api";
-import type { AnswerChoice, InterviewSession, RoomQuestion } from "./interviewRoom.types";
+import type { AnswerChoice, InterviewSession, RoomQuestion, SubmitAnswerPayload } from "./interviewRoom.types";
+import InterviewQuestionAnswer from "./InterviewQuestionAnswer";
+import InterviewSessionReview from "./InterviewSessionReview";
 
 function pickRecorderMimeType(): string | undefined {
     const candidates = [
@@ -30,13 +33,18 @@ function extensionForMime(mime: string): string {
     return "webm";
 }
 
-const OPTION_KEYS: { key: AnswerChoice; labelKey: keyof RoomQuestion }[] = [
-    { key: "option_1", labelKey: "option_1" },
-    { key: "option_2", labelKey: "option_2" },
-    { key: "option_3", labelKey: "option_3" },
-];
 
 export default function InterviewRoom() {
+    const location = useLocation();
+    const isCandidatePortal = location.pathname.startsWith("/candidate/");
+
+    if (!isCandidatePortal) {
+        return <InterviewSessionReview />;
+    }
+
+    const backPath = "/candidate/interviews";
+    const backLabel = "← My interviews";
+
     const { sessionId: sessionIdParam } = useParams<{ sessionId: string }>();
     const sessionId = sessionIdParam ? Number.parseInt(sessionIdParam, 10) : NaN;
 
@@ -61,6 +69,9 @@ export default function InterviewRoom() {
     const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
 
     const [answers, setAnswers] = useState<Partial<Record<number, AnswerChoice>>>({});
+    const [textAnswers, setTextAnswers] = useState<Partial<Record<number, string>>>({});
+    const [mediaUploaded, setMediaUploaded] = useState<Partial<Record<number, boolean>>>({});
+    const [focusViolations, setFocusViolations] = useState(0);
     const [answersSubmitted, setAnswersSubmitted] = useState(false);
     const [answersError, setAnswersError] = useState<string | null>(null);
 
@@ -110,11 +121,37 @@ export default function InterviewRoom() {
             setTabHidden(hidden);
             if (hidden) {
                 setTabSwitchCount((c) => c + 1);
+                if (session?.status === "in_progress" && Number.isFinite(sessionId)) {
+                    void reportInterviewFocusViolation(sessionId)
+                        .then(setFocusViolations)
+                        .catch(() => undefined);
+                }
             }
         };
         document.addEventListener("visibilitychange", onVis);
         return () => document.removeEventListener("visibilitychange", onVis);
-    }, []);
+    }, [session?.status, sessionId]);
+
+    useEffect(() => {
+        if (session?.status !== "in_progress") return;
+        const onBlur = () => {
+            if (Number.isFinite(sessionId)) {
+                void reportInterviewFocusViolation(sessionId)
+                    .then(setFocusViolations)
+                    .catch(() => undefined);
+            }
+        };
+        const onBeforeUnload = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = "";
+        };
+        window.addEventListener("blur", onBlur);
+        window.addEventListener("beforeunload", onBeforeUnload);
+        return () => {
+            window.removeEventListener("blur", onBlur);
+            window.removeEventListener("beforeunload", onBeforeUnload);
+        };
+    }, [session?.status, sessionId]);
 
     const loadRoom = useCallback(async () => {
         if (!Number.isFinite(sessionId) || sessionId < 1) return;
@@ -125,6 +162,7 @@ export default function InterviewRoom() {
                 getInterviewQuestions(sessionId),
             ]);
             setSession(s);
+            setFocusViolations(s.focus_violations ?? 0);
             setQuestions(q);
         } catch (e) {
             setLoadError(e instanceof Error ? e.message : "Failed to load interview.");
@@ -142,7 +180,15 @@ export default function InterviewRoom() {
         try {
             const s = await startInterviewSession(sessionId);
             setSession(s);
-            setActionMessage("Interview started. Enable your camera when you are ready.");
+            setFocusViolations(s.focus_violations ?? 0);
+            const q = await getInterviewQuestions(sessionId);
+            setQuestions(q);
+            setActionMessage("Interview started. Stay on this tab until you finish all questions.");
+            try {
+                await document.documentElement.requestFullscreen();
+            } catch {
+                /* fullscreen optional */
+            }
         } catch (e) {
             setActionMessage(e instanceof Error ? e.message : "Could not start interview.");
         } finally {
@@ -241,18 +287,30 @@ export default function InterviewRoom() {
             setAnswersError("No questions to submit.");
             return;
         }
-        const missing = questions.filter((q) => !answers[q.id]);
-        if (missing.length > 0) {
-            setAnswersError(`Please answer all questions (${missing.length} missing).`);
-            return;
+
+        const payload: SubmitAnswerPayload[] = [];
+        for (const q of questions) {
+            if (q.response_type === "multiple_choice") {
+                if (!answers[q.id]) {
+                    setAnswersError(`Please answer all questions (missing: ${q.text.slice(0, 40)}…).`);
+                    return;
+                }
+                payload.push({ question: q.id, selected_answer: answers[q.id]! });
+            } else if (q.response_type === "text") {
+                if (!textAnswers[q.id]?.trim()) {
+                    setAnswersError(`Please answer all questions (missing text for question ${q.id}).`);
+                    return;
+                }
+                payload.push({ question: q.id, text_response: textAnswers[q.id]!.trim() });
+            } else if (!mediaUploaded[q.id]) {
+                setAnswersError(`Please record and upload media for: ${q.text.slice(0, 40)}…`);
+                return;
+            }
         }
+
         setBusy(true);
         setAnswersError(null);
         try {
-            const payload = questions.map((q) => ({
-                question: q.id,
-                selected_answer: answers[q.id]!,
-            }));
             await submitInterviewAnswers(sessionId, payload);
             setAnswersSubmitted(true);
             setActionMessage("Answers saved.");
@@ -283,8 +341,8 @@ export default function InterviewRoom() {
         return (
             <Card className="max-w-lg border-amber-200/80 bg-amber-50/50">
                 <p className="text-sm text-amber-900">Invalid session id in URL.</p>
-                <Link to="/dashboard" className="mt-3 inline-block text-sm font-medium text-brand-800 underline">
-                    Back to HR
+                <Link to={backPath} className="mt-3 inline-block text-sm font-medium text-brand-800 underline">
+                    Back
                 </Link>
             </Card>
         );
@@ -297,8 +355,8 @@ export default function InterviewRoom() {
                 <Button type="button" variant="secondary" className="mt-4" onClick={() => void loadRoom()}>
                     Retry
                 </Button>
-                <Link to="/dashboard" className="ml-3 text-sm font-medium text-brand-800 underline">
-                    Back to HR
+                <Link to={backPath} className="ml-3 text-sm font-medium text-brand-800 underline">
+                    Back
                 </Link>
             </Card>
         );
@@ -317,18 +375,37 @@ export default function InterviewRoom() {
     const canAnswer = session.status === "in_progress";
 
     return (
-        <div className="space-y-6">
+        <div className="relative space-y-6">
+            {tabHidden && canAnswer ? (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-6 text-center">
+                    <div className="max-w-md space-y-3 text-white">
+                        <h2 className="text-xl font-semibold">Return to the interview</h2>
+                        <p className="text-sm text-slate-200">
+                            You must stay on this tab while answering questions. Switching away is
+                            recorded and reported to HR.
+                        </p>
+                        {focusViolations > 0 ? (
+                            <p className="text-sm text-amber-300">Focus violations: {focusViolations}</p>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+
             <PageHeader
-                title="Interview room"
-                description={`Session #${session.id} · CV #${session.cv} · ${session.duration_seconds}s allotted for recording`}
+                title={isCandidatePortal ? "Job interview" : "Interview room"}
+                description={
+                    isCandidatePortal
+                        ? `Session #${session.id} · Answer all questions for this job. Stay on this page until finished.`
+                        : `Session #${session.id} · CV #${session.cv} · ${session.duration_seconds}s allotted for recording`
+                }
                 actions={
-                    <LinkButton to="/dashboard" variant="secondary" size="sm">
-                        ← HR home
+                    <LinkButton to={backPath} variant="secondary" size="sm">
+                        {backLabel}
                     </LinkButton>
                 }
             />
 
-            {tabHidden && (
+            {tabHidden && !canAnswer && (
                 <div
                     className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm"
                     role="status"
@@ -458,45 +535,44 @@ export default function InterviewRoom() {
 
             <Card className="space-y-6">
                 <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Knowledge check</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">Interview questions</h2>
                     <p className="mt-1 text-sm text-slate-600">
-                        Select one answer per question, then submit. You can submit before or after your video.
+                        Answer every question (text, audio, video, or multiple choice), then submit.
+                        {focusViolations > 0 ? (
+                            <span className="ml-1 text-amber-700">
+                                Focus violations recorded: {focusViolations}
+                            </span>
+                        ) : null}
                     </p>
                 </div>
 
                 {questions.length === 0 ? (
-                    <p className="text-sm text-slate-500">No questions are linked to this session yet.</p>
+                    <p className="text-sm text-slate-500">
+                        No questions are linked to this session yet. HR must add interview questions
+                        to the job posting, then restart the interview.
+                    </p>
                 ) : (
                     <ul className="space-y-6">
                         {questions.map((q, idx) => (
-                            <li key={q.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                                <p className="text-sm font-medium text-slate-900">
-                                    {idx + 1}. {q.text}
-                                </p>
-                                <fieldset className="mt-3 space-y-2">
-                                    {OPTION_KEYS.map(({ key, labelKey }) => (
-                                        <label
-                                            key={key}
-                                            className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent px-2 py-2 hover:bg-slate-50 has-[:checked]:border-brand-200 has-[:checked]:bg-brand-50/50"
-                                        >
-                                            <input
-                                                type="radio"
-                                                name={`q-${q.id}`}
-                                                className="mt-1 text-brand-600 focus:ring-brand-500"
-                                                checked={answers[q.id] === key}
-                                                onChange={() =>
-                                                    setAnswers((prev) => ({
-                                                        ...prev,
-                                                        [q.id]: key,
-                                                    }))
-                                                }
-                                                disabled={answersSubmitted || isTerminal || !canAnswer}
-                                            />
-                                            <span className="text-sm text-slate-800">{q[labelKey]}</span>
-                                        </label>
-                                    ))}
-                                </fieldset>
-                            </li>
+                            <InterviewQuestionAnswer
+                                key={q.id}
+                                sessionId={sessionId}
+                                question={q}
+                                index={idx}
+                                disabled={answersSubmitted || isTerminal || !canAnswer}
+                                mcAnswer={answers[q.id]}
+                                textAnswer={textAnswers[q.id] ?? ""}
+                                mediaUploaded={Boolean(mediaUploaded[q.id])}
+                                onMcChange={(value) =>
+                                    setAnswers((prev) => ({ ...prev, [q.id]: value }))
+                                }
+                                onTextChange={(value) =>
+                                    setTextAnswers((prev) => ({ ...prev, [q.id]: value }))
+                                }
+                                onMediaUploaded={() =>
+                                    setMediaUploaded((prev) => ({ ...prev, [q.id]: true }))
+                                }
+                            />
                         ))}
                     </ul>
                 )}

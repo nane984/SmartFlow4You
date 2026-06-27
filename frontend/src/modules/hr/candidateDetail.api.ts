@@ -12,13 +12,24 @@ export type AnswerReview = {
     id: number;
     question: number;
     question_text: string;
-    selected_answer: "option_1" | "option_2" | "option_3";
-    correct_answer: "option_1" | "option_2" | "option_3";
-    is_correct: boolean;
+    response_type?: string;
+    selected_answer?: string | null;
+    text_response?: string | null;
+    media_file?: string | null;
+    media_file_url?: string | null;
+    correct_answer?: string | null;
+    is_correct?: boolean | null;
+    answered_at?: string | null;
 };
 
 export async function getCvById(id: number): Promise<CV> {
     const res = await api.get<CV>(`hr/cvs/${id}/`);
+    return res.data;
+}
+
+/** HR: fetch CV file bytes for in-app preview (authenticated, same-origin via API). */
+export async function getCvFileBlob(id: number): Promise<Blob> {
+    const res = await api.get<Blob>(`hr/cvs/${id}/file/`, { responseType: "blob" });
     return res.data;
 }
 

@@ -3,6 +3,7 @@ import ApplicationStatusSelector from "../hr/ApplicationStatusSelector";
 import JobStatusSelector, { jobPostingStatusBadgeClass } from "../hr/JobStatusSelector";
 import type { JobPostingStatus } from "../hr/JobStatusSelector";
 import Card from "../ui/Card";
+import Button from "../ui/Button";
 import LinkButton from "../ui/LinkButton";
 import { controlClass } from "../ui/inputStyles";
 import { cn } from "../ui/cn";
@@ -19,11 +20,13 @@ import {
 } from "../../modules/jobs/jobs.api";
 import { getCvs, getJobPosts } from "../../modules/hr/cv.api";
 import type { JobPost } from "../../modules/hr/cv.types";
-import { getInterviewSessions } from "../../modules/hr/interviewRoom.api";
+import { getInterviewSessions, createInterviewSession, scheduleApplicationInterview } from "../../modules/hr/interviewRoom.api";
 import type { InterviewSession } from "../../modules/hr/interviewRoom.types";
+import { listApplicationStatusHistory } from "../../modules/hr/applicationStatusHistory.api";
+import type { ApplicationStatusHistoryEntry } from "../../modules/hr/applicationStatusHistory.api";
 import { formatApiErrors } from "../../util/formatApiErrors";
 
-type HrTab = "applications" | "jobs" | "interviews";
+type HrTab = "applications" | "jobs" | "interviews" | "status_history";
 
 function formatDate(value: string | null | undefined): string {
     if (!value) return "—";
@@ -48,20 +51,32 @@ function jobIdForApplication(app: JobApplication): number | null {
     return app.job_post ?? app.job_posting ?? null;
 }
 
+function toDatetimeLocalValue(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 const TAB_LABELS: Record<HrTab, string> = {
     applications: "Applications",
     jobs: "Job positions",
     interviews: "Interviews",
+    status_history: "Status history",
 };
 
 export default function HrRecruitmentPanel() {
     const [applications, setApplications] = useState<JobApplication[]>([]);
     const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
     const [sessions, setSessions] = useState<InterviewSession[]>([]);
+    const [statusHistory, setStatusHistory] = useState<ApplicationStatusHistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<number | null>(null);
     const [busyJobId, setBusyJobId] = useState<number | null>(null);
+    const [scheduleBusyId, setScheduleBusyId] = useState<number | null>(null);
+    const [scheduleFormAppId, setScheduleFormAppId] = useState<string>("");
+    const [scheduleStartTime, setScheduleStartTime] = useState(() => toDatetimeLocalValue(new Date()));
+    const [scheduleDuration, setScheduleDuration] = useState("120");
+    const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
     const [jobFilter, setJobFilter] = useState<string>("all");
     const [activeTab, setActiveTab] = useState<HrTab>("applications");
 
@@ -70,10 +85,11 @@ export default function HrRecruitmentPanel() {
         setError(null);
         const errors: string[] = [];
 
-        const [appResult, sessionResult, jobPostResult] = await Promise.allSettled([
+        const [appResult, sessionResult, jobPostResult, historyResult] = await Promise.allSettled([
             loadApplicationsForHr(),
             getInterviewSessions(),
             getJobPosts(),
+            listApplicationStatusHistory(),
         ]);
 
         if (appResult.status === "fulfilled") setApplications(appResult.value);
@@ -84,6 +100,9 @@ export default function HrRecruitmentPanel() {
 
         if (jobPostResult.status === "fulfilled") setJobPosts(jobPostResult.value);
         else errors.push("job postings");
+
+        if (historyResult.status === "fulfilled") setStatusHistory(historyResult.value);
+        else errors.push("status history");
 
         if (errors.length === 3) setError("Failed to load recruitment data.");
         else if (errors.length > 0) setError(`Some data could not be loaded: ${errors.join(", ")}.`);
@@ -125,6 +144,35 @@ export default function HrRecruitmentPanel() {
         if (!Number.isFinite(jobId)) return jobPosts;
         return jobPosts.filter((job) => job.id === jobId);
     }, [jobPosts, jobFilter]);
+
+    const filteredStatusHistory = useMemo(() => {
+        if (jobFilter === "all") return statusHistory;
+        const jobId = Number.parseInt(jobFilter, 10);
+        if (!Number.isFinite(jobId)) return statusHistory;
+        const appIds = new Set(
+            applications.filter((app) => jobIdForApplication(app) === jobId).map((app) => app.id)
+        );
+        return statusHistory.filter((entry) => appIds.has(entry.application_id));
+    }, [statusHistory, jobFilter, applications]);
+
+    const sessionsByCvId = useMemo(() => {
+        const map = new Map<number, InterviewSession>();
+        for (const session of sessions) {
+            if (session.status === "cancelled") continue;
+            const existing = map.get(session.cv);
+            if (!existing || session.id > existing.id) {
+                map.set(session.cv, session);
+            }
+        }
+        return map;
+    }, [sessions]);
+
+    const scheduleEligibleApplications = useMemo(() => {
+        return applications.filter((app) => {
+            if (!["reviewed", "interview"].includes(app.status)) return false;
+            return !sessionsByCvId.has(app.id);
+        });
+    }, [applications, sessionsByCvId]);
 
     const activeJobsCount = jobPosts.filter((jp) => jp.posting_status === "published").length;
     const submittedCount = filteredApplications.filter((a) => a.status === "submitted").length;
@@ -170,6 +218,59 @@ export default function HrRecruitmentPanel() {
             throw err;
         } finally {
             setBusyJobId(null);
+        }
+    };
+
+    const handleQuickSchedule = async (applicationId: number) => {
+        setScheduleBusyId(applicationId);
+        setError(null);
+        try {
+            await scheduleApplicationInterview(applicationId);
+            await load();
+        } catch (err: unknown) {
+            const ax = err as { response?: { data?: unknown } };
+            setError(
+                ax.response?.data
+                    ? formatApiErrors(ax.response.data)
+                    : "Failed to schedule interview."
+            );
+        } finally {
+            setScheduleBusyId(null);
+        }
+    };
+
+    const handleScheduleFormSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const appId = Number.parseInt(scheduleFormAppId, 10);
+        const duration = Number.parseInt(scheduleDuration, 10);
+        if (!Number.isFinite(appId) || appId < 1) {
+            setError("Select an application to schedule.");
+            return;
+        }
+        if (!Number.isFinite(duration) || duration < 1) {
+            setError("Duration must be at least 1 second.");
+            return;
+        }
+        setScheduleSubmitting(true);
+        setError(null);
+        try {
+            await createInterviewSession({
+                cv: appId,
+                start_time: new Date(scheduleStartTime).toISOString(),
+                duration_seconds: duration,
+            });
+            setScheduleFormAppId("");
+            setScheduleStartTime(toDatetimeLocalValue(new Date()));
+            await load();
+        } catch (err: unknown) {
+            const ax = err as { response?: { data?: unknown } };
+            setError(
+                ax.response?.data
+                    ? formatApiErrors(ax.response.data)
+                    : "Failed to create interview session."
+            );
+        } finally {
+            setScheduleSubmitting(false);
         }
     };
 
@@ -285,8 +386,11 @@ export default function HrRecruitmentPanel() {
                         applications={applications}
                         filtered={filteredApplications}
                         busyId={busyId}
+                        scheduleBusyId={scheduleBusyId}
+                        sessionsByCvId={sessionsByCvId}
                         jobPostTitleById={jobPostTitleById}
                         onApply={handleStatusAction}
+                        onSchedule={handleQuickSchedule}
                     />
                 </Card>
             ) : null}
@@ -313,6 +417,89 @@ export default function HrRecruitmentPanel() {
                 <Card className="overflow-hidden border-slate-200/90 p-0 shadow-md shadow-slate-900/5">
                     <div className="border-b border-slate-200 px-6 py-4">
                         <h3 className="text-lg font-semibold text-slate-900">Interview sessions</h3>
+                        <p className="mt-1 text-sm text-slate-600">
+                            Schedule interviews for candidates. Moving an application to the interview
+                            stage also creates a session automatically.
+                        </p>
+                    </div>
+                    <div className="border-b border-slate-200 bg-slate-50/80 px-6 py-4">
+                        <form
+                            className="flex flex-wrap items-end gap-3"
+                            onSubmit={(e) => void handleScheduleFormSubmit(e)}
+                        >
+                            <div className="min-w-[220px] flex-1">
+                                <label
+                                    htmlFor="schedule-application"
+                                    className="mb-1 block text-xs font-medium text-slate-600"
+                                >
+                                    Application
+                                </label>
+                                <select
+                                    id="schedule-application"
+                                    className={`${controlClass} w-full`}
+                                    value={scheduleFormAppId}
+                                    onChange={(e) => setScheduleFormAppId(e.target.value)}
+                                    required
+                                >
+                                    <option value="">Select candidate…</option>
+                                    {scheduleEligibleApplications.map((app) => {
+                                        const jobId = jobIdForApplication(app);
+                                        return (
+                                            <option key={app.id} value={String(app.id)}>
+                                                {app.aplicant_name}
+                                                {" · "}
+                                                {app.job_title ??
+                                                    (jobId
+                                                        ? jobPostTitleById.get(jobId) ?? `Job #${jobId}`
+                                                        : "Job")}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                            <div>
+                                <label
+                                    htmlFor="schedule-start"
+                                    className="mb-1 block text-xs font-medium text-slate-600"
+                                >
+                                    Start time
+                                </label>
+                                <input
+                                    id="schedule-start"
+                                    type="datetime-local"
+                                    className={controlClass}
+                                    value={scheduleStartTime}
+                                    onChange={(e) => setScheduleStartTime(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="w-28">
+                                <label
+                                    htmlFor="schedule-duration"
+                                    className="mb-1 block text-xs font-medium text-slate-600"
+                                >
+                                    Duration (s)
+                                </label>
+                                <input
+                                    id="schedule-duration"
+                                    type="number"
+                                    min={1}
+                                    className={controlClass}
+                                    value={scheduleDuration}
+                                    onChange={(e) => setScheduleDuration(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <Button type="submit" disabled={scheduleSubmitting || scheduleEligibleApplications.length === 0}>
+                                {scheduleSubmitting ? "Scheduling…" : "Schedule interview"}
+                            </Button>
+                        </form>
+                        {scheduleEligibleApplications.length === 0 ? (
+                            <p className="mt-2 text-xs text-slate-500">
+                                All reviewed / interview-stage applications already have a session, or
+                                none are ready yet.
+                            </p>
+                        ) : null}
                     </div>
                     <InterviewsTable
                         loading={loading}
@@ -320,6 +507,18 @@ export default function HrRecruitmentPanel() {
                         filtered={filteredSessions}
                         appById={appById}
                     />
+                </Card>
+            ) : null}
+
+            {activeTab === "status_history" ? (
+                <Card className="overflow-hidden border-slate-200/90 p-0 shadow-md shadow-slate-900/5">
+                    <div className="border-b border-slate-200 px-6 py-4">
+                        <h3 className="text-lg font-semibold text-slate-900">Application status changes</h3>
+                        <p className="mt-1 text-sm text-slate-600">
+                            Audit log of status updates made by HR staff.
+                        </p>
+                    </div>
+                    <StatusHistoryTable loading={loading} entries={filteredStatusHistory} />
                 </Card>
             ) : null}
         </section>
@@ -331,15 +530,21 @@ function ApplicationsTable({
     applications,
     filtered,
     busyId,
+    scheduleBusyId,
+    sessionsByCvId,
     jobPostTitleById,
     onApply,
+    onSchedule,
 }: {
     loading: boolean;
     applications: JobApplication[];
     filtered: JobApplication[];
     busyId: number | null;
+    scheduleBusyId: number | null;
+    sessionsByCvId: Map<number, InterviewSession>;
     jobPostTitleById: Map<number, string>;
     onApply: (id: number, action: HrStatusAction) => Promise<void>;
+    onSchedule: (id: number) => Promise<void>;
 }) {
     return (
         <div className="overflow-x-auto">
@@ -351,31 +556,33 @@ function ApplicationsTable({
                         <th className="px-6 py-3 font-medium">Applied</th>
                         <th className="px-6 py-3 font-medium">Status</th>
                         <th className="px-6 py-3 font-medium">Processed</th>
+                        <th className="px-6 py-3 font-medium">Interview</th>
                         <th className="px-6 py-3 font-medium">Update</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                     {loading ? (
                         <tr>
-                            <td className="px-6 py-5 text-slate-500" colSpan={6}>
+                            <td className="px-6 py-5 text-slate-500" colSpan={7}>
                                 Loading…
                             </td>
                         </tr>
                     ) : applications.length === 0 ? (
                         <tr>
-                            <td className="px-6 py-5 text-slate-500" colSpan={6}>
+                            <td className="px-6 py-5 text-slate-500" colSpan={7}>
                                 No applications yet.
                             </td>
                         </tr>
                     ) : filtered.length === 0 ? (
                         <tr>
-                            <td className="px-6 py-5 text-slate-500" colSpan={6}>
+                            <td className="px-6 py-5 text-slate-500" colSpan={7}>
                                 No applications for this job.
                             </td>
                         </tr>
                     ) : (
                         filtered.map((app) => {
                             const jobId = jobIdForApplication(app);
+                            const session = sessionsByCvId.get(app.id);
                             return (
                                 <tr key={app.id} className="hover:bg-slate-50/80">
                                     <td className="px-6 py-4">
@@ -410,6 +617,34 @@ function ApplicationsTable({
                                         >
                                             {app.processed ? "Yes" : "No"}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {session ? (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <LinkButton
+                                                    to={`/hr/interview/${session.id}`}
+                                                    variant="secondary"
+                                                    size="sm"
+                                                >
+                                                    Review
+                                                </LinkButton>
+                                                <span className="text-xs capitalize text-slate-500">
+                                                    {session.status.replace("_", " ")}
+                                                </span>
+                                            </div>
+                                        ) : ["reviewed", "interview"].includes(app.status) ? (
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="sm"
+                                                disabled={scheduleBusyId === app.id}
+                                                onClick={() => void onSchedule(app.id)}
+                                            >
+                                                {scheduleBusyId === app.id ? "Scheduling…" : "Schedule"}
+                                            </Button>
+                                        ) : (
+                                            <span className="text-xs text-slate-400">—</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4">
                                         <ApplicationStatusSelector
@@ -530,24 +765,26 @@ function InterviewsTable({
                         <th className="px-6 py-3 font-medium">Status</th>
                         <th className="px-6 py-3 font-medium">Start</th>
                         <th className="px-6 py-3 font-medium">End</th>
+                        <th className="px-6 py-3 font-medium">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                     {loading ? (
                         <tr>
-                            <td className="px-6 py-5 text-slate-500" colSpan={4}>
+                            <td className="px-6 py-5 text-slate-500" colSpan={5}>
                                 Loading…
                             </td>
                         </tr>
                     ) : sessions.length === 0 ? (
                         <tr>
-                            <td className="px-6 py-5 text-slate-500" colSpan={4}>
-                                No interview sessions yet.
+                            <td className="px-6 py-5 text-slate-500" colSpan={5}>
+                                No interview sessions yet. Use Schedule interview above or move a
+                                candidate to the interview stage.
                             </td>
                         </tr>
                     ) : filtered.length === 0 ? (
                         <tr>
-                            <td className="px-6 py-5 text-slate-500" colSpan={4}>
+                            <td className="px-6 py-5 text-slate-500" colSpan={5}>
                                 No sessions for this job.
                             </td>
                         </tr>
@@ -555,7 +792,9 @@ function InterviewsTable({
                         filtered.map((session) => (
                             <tr key={session.id} className="hover:bg-slate-50/80">
                                 <td className="px-6 py-4 text-slate-900">
-                                    {appById.get(session.cv)?.aplicant_name ?? `CV #${session.cv}`}
+                                    {session.applicant_name ??
+                                        appById.get(session.cv)?.aplicant_name ??
+                                        `CV #${session.cv}`}
                                 </td>
                                 <td className="px-6 py-4 capitalize text-slate-700">
                                     {session.status.replace("_", " ")}
@@ -566,6 +805,72 @@ function InterviewsTable({
                                 <td className="px-6 py-4 text-slate-700">
                                     {formatDate(session.end_time)}
                                 </td>
+                                <td className="px-6 py-4">
+                                    <LinkButton
+                                        to={`/hr/interview/${session.id}`}
+                                        variant="secondary"
+                                        size="sm"
+                                    >
+                                        Review
+                                    </LinkButton>
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function StatusHistoryTable({
+    loading,
+    entries,
+}: {
+    loading: boolean;
+    entries: ApplicationStatusHistoryEntry[];
+}) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50/80">
+                    <tr className="text-left text-slate-600">
+                        <th className="px-6 py-3 font-medium">When</th>
+                        <th className="px-6 py-3 font-medium">Candidate</th>
+                        <th className="px-6 py-3 font-medium">Job</th>
+                        <th className="px-6 py-3 font-medium">From</th>
+                        <th className="px-6 py-3 font-medium">To</th>
+                        <th className="px-6 py-3 font-medium">Changed by</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                    {loading ? (
+                        <tr>
+                            <td className="px-6 py-5 text-slate-500" colSpan={6}>
+                                Loading…
+                            </td>
+                        </tr>
+                    ) : entries.length === 0 ? (
+                        <tr>
+                            <td className="px-6 py-5 text-slate-500" colSpan={6}>
+                                No status changes recorded yet.
+                            </td>
+                        </tr>
+                    ) : (
+                        entries.map((entry) => (
+                            <tr key={entry.id} className="hover:bg-slate-50/80">
+                                <td className="px-6 py-4 text-slate-700">{formatDate(entry.changed_at)}</td>
+                                <td className="px-6 py-4 font-medium text-slate-900">{entry.candidate_name}</td>
+                                <td className="px-6 py-4 text-slate-700">{entry.job_title}</td>
+                                <td className="px-6 py-4 text-slate-700">
+                                    {entry.from_status_label || "—"}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                                        {entry.to_status_label}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-slate-700">{entry.changed_by_name}</td>
                             </tr>
                         ))
                     )}

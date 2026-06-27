@@ -72,6 +72,7 @@ export default function Dashboard() {
                     </div>
                     <CandidateApplicationsList
                         applications={candidateApps.applications}
+                        interviews={candidateApps.interviews}
                         loading={candidateApps.loading}
                         error={candidateApps.error}
                     />

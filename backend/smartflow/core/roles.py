@@ -11,9 +11,11 @@ from typing import Final
 # --- Canonical roles (stored on User.role after normalization) ---
 ROLE_ADMIN: Final = "admin"
 ROLE_HR_ADMIN: Final = "hr_admin"
+ROLE_TENDER: Final = "tender"
 ROLE_TENDER_USER: Final = "tender_user"
 ROLE_SUPPLIER: Final = "supplier"
 ROLE_CANDIDATE: Final = "candidate"
+ROLE_DESIGNER: Final = "designer"
 
 # Legacy values still present in older rows / JWT sessions until migrated
 ROLE_HR_LEGACY: Final = "hr"
@@ -25,9 +27,11 @@ ALL_ROLES: Final = frozenset(
     {
         ROLE_ADMIN,
         ROLE_HR_ADMIN,
+        ROLE_TENDER,
         ROLE_TENDER_USER,
         ROLE_SUPPLIER,
         ROLE_CANDIDATE,
+        ROLE_DESIGNER,
         ROLE_HR_LEGACY,
         ROLE_INTERVIEWER_LEGACY,
         ROLE_INVESTOR_LEGACY,
@@ -37,9 +41,11 @@ ALL_ROLES: Final = frozenset(
 ROLE_LABELS: Final = {
     ROLE_ADMIN: "Administrator",
     ROLE_HR_ADMIN: "HR Admin",
+    ROLE_TENDER: "Tender",
     ROLE_TENDER_USER: "Tender user",
     ROLE_SUPPLIER: "Supplier",
     ROLE_CANDIDATE: "Candidate",
+    ROLE_DESIGNER: "Designer",
     ROLE_HR_LEGACY: "HR (legacy)",
     ROLE_INTERVIEWER_LEGACY: "Interviewer (legacy)",
     ROLE_INVESTOR_LEGACY: "Investor (legacy)",
@@ -85,10 +91,11 @@ def effective_role(raw: str | None) -> str | None:
 
 
 # --- Role groups for permission checks (Step 3) ---
-PROCUREMENT_STAFF_ROLES: Final = frozenset({ROLE_ADMIN, ROLE_TENDER_USER})
+PROCUREMENT_STAFF_ROLES: Final = frozenset({ROLE_ADMIN, ROLE_TENDER, ROLE_TENDER_USER})
 PROCUREMENT_SUPPLIER_ROLES: Final = frozenset({ROLE_SUPPLIER})
 HR_STAFF_ROLES: Final = frozenset({ROLE_ADMIN, ROLE_HR_ADMIN, ROLE_HR_LEGACY, ROLE_INTERVIEWER_LEGACY})
 HR_CANDIDATE_ROLES: Final = frozenset({ROLE_CANDIDATE})
+DESIGN_STAFF_ROLES: Final = frozenset({ROLE_ADMIN, ROLE_DESIGNER})
 
 
 def user_has_role(user, allowed: frozenset[str]) -> bool:
@@ -119,3 +126,7 @@ def is_candidate_user(user) -> bool:
 
 def is_admin_user(user) -> bool:
     return user_has_role(user, frozenset({ROLE_ADMIN}))
+
+
+def is_design_staff(user) -> bool:
+    return user_has_role(user, DESIGN_STAFF_ROLES)

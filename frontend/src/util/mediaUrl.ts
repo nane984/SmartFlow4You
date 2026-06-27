@@ -1,26 +1,27 @@
-import api from "../api/api";
+const API_ORIGIN =
+    (import.meta.env.VITE_API_ORIGIN as string | undefined)?.replace(/\/$/, "") ??
+    "http://localhost:8000";
 
-/** Extract a display file name from a media URL path. */
-export function documentFileName(url: string): string {
-    const path = url.split("?")[0].split("/").filter(Boolean).pop() ?? "Document";
-    try {
-        return decodeURIComponent(path);
-    } catch {
-        return path;
-    }
+/** Resolve Django media or API file paths to an absolute URL. */
+export function mediaUrl(path: string | null | undefined): string {
+    if (!path) return "";
+    if (/^https?:\/\//i.test(path)) return path;
+    if (path.startsWith("/")) return `${API_ORIGIN}${path}`;
+    return `${API_ORIGIN}/${path}`;
 }
 
-/** Resolve API FileField URLs (relative `/media/...` or absolute) for links and downloads. */
-export function resolveMediaUrl(url: string | null | undefined): string {
-    if (!url) return "";
-    if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    const base = api.defaults.baseURL ?? "";
+/** @deprecated alias — use mediaUrl */
+export function resolveMediaUrl(path: string | null | undefined): string {
+    return mediaUrl(path);
+}
+
+/** Extract a display filename from a media URL or path. */
+export function documentFileName(path: string | null | undefined): string {
+    if (!path) return "Document";
+    const segment = path.split("/").pop()?.split("?")[0] ?? "";
     try {
-        const u = new URL(base);
-        const origin = `${u.protocol}//${u.host}`;
-        const path = url.startsWith("/") ? url : `/${url}`;
-        return `${origin}${path}`;
+        return decodeURIComponent(segment) || "Document";
     } catch {
-        return url;
+        return segment || "Document";
     }
 }

@@ -1,12 +1,33 @@
 """HR application review workflow helpers."""
 
+from __future__ import annotations
+
 from rest_framework.exceptions import ValidationError
 
-from .models import CV
+from .interview_helpers import ensure_interview_session_for_application
+from .models import ApplicationStatusHistory, CV
 
 
-def apply_application_status_action(application: CV, action: str) -> CV:
+def log_application_status_change(
+    application: CV,
+    *,
+    from_status: str,
+    to_status: str,
+    changed_by=None,
+    note: str = "",
+) -> ApplicationStatusHistory:
+    return ApplicationStatusHistory.objects.create(
+        application=application,
+        from_status=from_status or "",
+        to_status=to_status,
+        changed_by=changed_by,
+        note=note,
+    )
+
+
+def apply_application_status_action(application: CV, action: str, *, changed_by=None) -> CV:
     status = application.status
+    previous = status
 
     if action == "mark_reviewed":
         if status not in (CV.ApplicationStatus.SUBMITTED,):
@@ -33,4 +54,14 @@ def apply_application_status_action(application: CV, action: str) -> CV:
         raise ValidationError({"action": "Unknown action."})
 
     application.save(update_fields=["processed", "status"])
+    if application.status != previous:
+        log_application_status_change(
+            application,
+            from_status=previous,
+            to_status=application.status,
+            changed_by=changed_by,
+            note=action,
+        )
+        if application.status == CV.ApplicationStatus.INTERVIEW:
+            ensure_interview_session_for_application(application)
     return application
