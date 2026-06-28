@@ -1,7 +1,13 @@
 import api from "../../api/api";
 import type { ApiPage } from "../../components/common/Pagenation.type";
 import { formatPriceForApi } from "../../util/parsePriceInput";
-import type { OfferCreatePayload, OfferUpdatePayload, SupplierOffer } from "./offer.types";
+import type {
+    OfferCreatePayload,
+    OfferLineItem,
+    OfferLineItemPayload,
+    OfferUpdatePayload,
+    SupplierOffer,
+} from "./offer.types";
 
 function unwrapList<T>(data: ApiPage<T> | T[]): T[] {
     if (Array.isArray(data)) return data;
@@ -69,4 +75,37 @@ export async function updateOffer(
 
 export async function deleteOffer(id: number): Promise<void> {
     await api.delete(`/offers/${id}/`);
+}
+
+export async function getOfferItems(offerId: number): Promise<OfferLineItem[]> {
+    const res = await api.get<ApiPage<OfferLineItem> | OfferLineItem[]>(
+        `/offer-items/?supplier_offer=${offerId}`,
+    );
+    return unwrapList(res.data);
+}
+
+export async function createOfferItem(data: OfferLineItemPayload): Promise<OfferLineItem> {
+    const res = await api.post<OfferLineItem>("/offer-items/", {
+        supplier_offer: data.supplier_offer,
+        tender_item: data.tender_item,
+        unit_price: formatPriceForApi(data.unit_price),
+        quantity: formatPriceForApi(data.quantity),
+    });
+    return res.data;
+}
+
+export async function createOfferLineItems(
+    offerId: number,
+    lines: Omit<OfferLineItemPayload, "supplier_offer">[],
+): Promise<void> {
+    await Promise.all(
+        lines.map((line) =>
+            createOfferItem({
+                supplier_offer: offerId,
+                tender_item: line.tender_item,
+                unit_price: line.unit_price,
+                quantity: line.quantity,
+            }),
+        ),
+    );
 }

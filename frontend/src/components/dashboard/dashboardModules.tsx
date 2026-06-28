@@ -58,8 +58,8 @@ export const DASHBOARD_MODULES: DashboardModule[] = [
     {
         id: "submissions",
         to: "/submissions",
-        title: "Submissions",
-        description: "Review subcontractor file uploads, prices, and submission status.",
+        title: "Work package bids",
+        description: "Contractor Excel bids per trade package — review uploads, prices, and status.",
         accent: "from-violet-500/10 to-purple-500/5 ring-violet-200/60",
         roles: PROCUREMENT_STAFF_ROLES,
         icon: (
@@ -92,8 +92,8 @@ export const DASHBOARD_MODULES: DashboardModule[] = [
     {
         id: "offers",
         to: "/offers",
-        title: "Offers",
-        description: "Track supplier bids, RFQs, and offer documents across tenders.",
+        title: "Supplier offers",
+        description: "Supplier RFQ responses and priced offers on tender line items.",
         accent: "from-amber-500/10 to-orange-500/5 ring-amber-200/60",
         roles: PROCUREMENT_STAFF_ROLES,
         icon: (
@@ -109,8 +109,8 @@ export const DASHBOARD_MODULES: DashboardModule[] = [
     {
         id: "my-offers",
         to: "/offers",
-        title: "My offers",
-        description: "Submit and review your company's bids on assigned tenders.",
+        title: "My supplier offers",
+        description: "Submit and track your company's RFQ offers on tenders (not work-package Excel bids).",
         accent: "from-amber-500/10 to-orange-500/5 ring-amber-200/60",
         roles: PROCUREMENT_SUPPLIER_ROLES,
         icon: (
@@ -125,9 +125,9 @@ export const DASHBOARD_MODULES: DashboardModule[] = [
     },
     {
         id: "hr-jobs",
-        to: "/hr/jobs",
+        to: "/hr-dashboard",
         title: "HR & recruitment",
-        description: "Publish job postings, manage applicants, and run interview workflows.",
+        description: "Candidate pipeline, applications, job postings, and interview scheduling.",
         accent: "from-violet-500/10 to-purple-500/5 ring-violet-200/60",
         roles: [...HR_STAFF_ROLES, ROLES.INTERVIEWER],
         icon: (

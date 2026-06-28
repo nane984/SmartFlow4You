@@ -6,6 +6,7 @@ import LinkButton from "../../components/ui/LinkButton";
 import PageHeader from "../../components/ui/PageHeader";
 import { getSubmissions } from "../../modules/workPackages/workPackage.api";
 import type { WorkPackageSubmission } from "../../modules/workPackages/workPackage.types";
+import BidTypeGuide from "../../components/procurement/BidTypeGuide";
 import { resolveMediaUrl } from "../../util/mediaUrl";
 import { fileNameFromUrl } from "../../util/fileNameFromUrl";
 
@@ -39,14 +40,16 @@ export default function SubmissionsList() {
     return (
         <>
             <PageHeader
-                title="Submissions"
-                description="Subcontractor bids across all work packages."
+                title="Work package bids"
+                description="Contractor Excel submissions per work package (electrical, HVAC, civil, etc.)."
                 actions={
                     <LinkButton to="/submissions/submit" variant="primary" size="sm">
-                        Submit a bid
+                        Submit work package bid
                     </LinkButton>
                 }
             />
+
+            <BidTypeGuide variant="compare" className="mb-4" />
 
             {error && (
                 <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
@@ -61,7 +64,7 @@ export default function SubmissionsList() {
                     <div className="space-y-3 p-6 text-sm text-slate-600">
                         <p>No submissions yet.</p>
                         <LinkButton to="/submissions/submit" variant="primary" size="sm">
-                            Submit first bid
+                            Submit work package bid
                         </LinkButton>
                     </div>
                 ) : (

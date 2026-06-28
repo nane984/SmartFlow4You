@@ -6,7 +6,7 @@ export default function OfferCreate() {
         <>
             <PageHeader
                 title="Submit supplier offer"
-                description="Link an offer to a tender and supplier. An RFQ record is created automatically when needed."
+                description="For suppliers: link a priced response to a tender and supplier company. An RFQ is created automatically when needed."
             />
             <OfferForm />
         </>

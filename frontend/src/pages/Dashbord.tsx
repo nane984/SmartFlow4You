@@ -4,7 +4,6 @@ import { getEffectiveRole } from "../auth/accessUtils";
 import { HR_STAFF_ROLES, ROLES, roleInList } from "../auth/roles";
 import DashboardHero from "../components/dashboard/DashboardHero";
 import DashboardModuleCard from "../components/dashboard/DashboardModuleCard";
-import HrRecruitmentPanel from "../components/dashboard/HrRecruitmentPanel";
 import {
     CandidateApplicationsList,
     useCandidateApplications,
@@ -25,13 +24,10 @@ export default function Dashboard() {
     const isCandidate = roleInList(role, [ROLES.CANDIDATE, ROLES.ADMIN]);
     const candidateApps = useCandidateApplications();
 
-    const modules = useMemo(() => {
-        const list = DASHBOARD_MODULES.filter((m) => roleInList(role, m.roles));
-        if (isHrStaff) {
-            return list.filter((m) => m.id !== "hr-jobs");
-        }
-        return list;
-    }, [role, isHrStaff]);
+    const modules = useMemo(
+        () => DASHBOARD_MODULES.filter((m) => roleInList(role, m.roles)),
+        [role]
+    );
 
     const shortcuts = useMemo(
         () => ROLE_SHORTCUTS.filter((s) => roleInList(role, s.roles)),
@@ -58,8 +54,6 @@ export default function Dashboard() {
                 </section>
             ) : null}
 
-            {isHrStaff ? <HrRecruitmentPanel /> : null}
-
             {isCandidate && !isHrStaff ? (
                 <section className="space-y-4">
                     <div>
@@ -79,7 +73,7 @@ export default function Dashboard() {
                 </section>
             ) : null}
 
-            {!isHrPrimary && modules.length > 0 ? (
+            {modules.length > 0 ? (
                 <section className="space-y-6">
                     <div>
                         <p className="text-sm font-semibold uppercase tracking-widest text-brand-700">
@@ -113,7 +107,7 @@ export default function Dashboard() {
                         ))}
                     </div>
                 </section>
-            ) : !isHrPrimary && modules.length === 0 && !isHrStaff ? (
+            ) : modules.length === 0 && !isHrStaff ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
                     <p className="text-sm text-slate-600">
                         No modules are assigned to your role yet. Contact an administrator if you

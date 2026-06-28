@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { getEffectiveRole } from "../../auth/accessUtils";
 import { cn } from "../ui/cn";
 import { getNavSectionsForRole, isNavItemActive } from "./navigationConfig";
+import Logo from "../ui/Logo";
 
 type SidebarProps = {
     className?: string;
@@ -54,7 +55,7 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
             aria-label="Application navigation"
         >
             <div className="flex h-14 items-center border-b border-slate-100 px-4">
-                <span className="text-base font-semibold tracking-tight text-brand-900">SmartFlow</span>
+                <Logo to="/dashboard" size="sm" />
             </div>
 
             <nav className="flex-1 overflow-y-auto px-3 py-4">

@@ -51,7 +51,7 @@ export default function WorkPackagesIndex() {
                             Tenders
                         </LinkButton>
                         <LinkButton to="/submissions/submit" variant="primary" size="sm">
-                            Submit a bid
+                            Submit work package bid
                         </LinkButton>
                     </>
                 }

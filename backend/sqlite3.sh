@@ -14,4 +14,4 @@ if [[ $# -eq 0 ]]; then
   exec "$BIN" "$DB"
 fi
 
-exec "$BIN" "$@"
+exec "$BIN" "$DB" "$@"

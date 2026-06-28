@@ -14,6 +14,7 @@ import type { WorkPackage } from "../../modules/workPackages/workPackage.types";
 import { parsePriceInput } from "../../util/parsePriceInput";
 import { resolveMediaUrl } from "../../util/mediaUrl";
 import { fileNameFromUrl } from "../../util/fileNameFromUrl";
+import BidTypeGuide from "../../components/procurement/BidTypeGuide";
 
 const EXCEL_ACCEPT =
     ".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -35,13 +36,14 @@ function formatSubmitError(err: unknown): string {
             if (parts.length) return parts.join(" ");
         }
     }
-    return "Could not submit offer.";
+    return "Could not submit work package bid.";
 }
 
 export default function SubcontractorSubmit() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const preselectedWp = searchParams.get("work_package");
+    const preselectedTender = searchParams.get("tender");
 
     const [companies, setCompanies] = useState<Company[]>([]);
     const [allPackages, setAllPackages] = useState<WorkPackage[]>([]);
@@ -64,15 +66,22 @@ export default function SubcontractorSubmit() {
         [allPackages, workPackageId]
     );
 
+    const packagesForSelect = useMemo(() => {
+        if (!preselectedTender) return allPackages;
+        const tid = Number(preselectedTender);
+        if (!Number.isFinite(tid)) return allPackages;
+        return allPackages.filter((p) => p.tender === tid);
+    }, [allPackages, preselectedTender]);
+
     const packagesByTender = useMemo(() => {
         const map = new Map<number, WorkPackage[]>();
-        for (const p of allPackages) {
+        for (const p of packagesForSelect) {
             const list = map.get(p.tender) ?? [];
             list.push(p);
             map.set(p.tender, list);
         }
         return map;
-    }, [allPackages]);
+    }, [packagesForSelect]);
 
     const loadPackages = useCallback(async () => {
         setLoading(true);
@@ -122,7 +131,7 @@ export default function SubcontractorSubmit() {
                 },
                 uploadedFile
             );
-            setSuccess("Offer submitted successfully.");
+            setSuccess("Work package bid submitted successfully.");
             setUploadedFile(null);
             setPrice("");
             window.setTimeout(() => {
@@ -142,8 +151,8 @@ export default function SubcontractorSubmit() {
     return (
         <>
             <PageHeader
-                title="Submit subcontractor offer"
-                description="Select a work package, download the Excel template, upload your completed file, and submit."
+                title="Submit work package bid"
+                description="For contractors: select a work package, download the Excel template, upload your completed file, and optional total price."
                 actions={
                     <>
                         <LinkButton to="/submissions" variant="secondary" size="sm">
@@ -159,6 +168,8 @@ export default function SubcontractorSubmit() {
                 }
             />
 
+            <BidTypeGuide variant="work-package" className="mb-4 max-w-2xl" />
+
             <Card className="max-w-2xl">
                 {success && (
                     <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
@@ -173,9 +184,11 @@ export default function SubcontractorSubmit() {
 
                 {loading ? (
                     <p className="text-sm text-slate-600">Loading work packages…</p>
-                ) : allPackages.length === 0 ? (
+                ) : packagesForSelect.length === 0 ? (
                     <p className="text-sm text-slate-600">
-                        No work packages available yet. An admin must create work packages on a tender first.
+                        {preselectedTender
+                            ? "No work packages for this tender yet. An admin must create packages on the tender first."
+                            : "No work packages available yet. An admin must create work packages on a tender first."}
                     </p>
                 ) : (
                     <form className="space-y-5" onSubmit={handleSubmit}>
@@ -278,7 +291,7 @@ export default function SubcontractorSubmit() {
 
                         <div className="flex flex-wrap gap-2 pt-2">
                             <Button type="submit" disabled={saving}>
-                                {saving ? "Submitting…" : "Submit offer"}
+                                {saving ? "Submitting…" : "Submit work package bid"}
                             </Button>
                             <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
                                 Cancel

@@ -67,7 +67,7 @@ export const NAV_SECTIONS: NavSection[] = [
             },
             {
                 to: "/submissions",
-                label: "Submissions",
+                label: "Work package bids",
                 roles: PROCUREMENT_STAFF_ROLES,
             },
             {
@@ -77,12 +77,12 @@ export const NAV_SECTIONS: NavSection[] = [
             },
             {
                 to: "/offers",
-                label: "Offers",
+                label: "Supplier offers",
                 roles: PROCUREMENT_STAFF_ROLES,
             },
             {
                 to: "/offers",
-                label: "My offers",
+                label: "My supplier offers",
                 roles: PROCUREMENT_SUPPLIER_ROLES,
             },
         ],
@@ -92,6 +92,7 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "HR",
         roles: [...HR_STAFF_ROLES, ROLES.INTERVIEWER],
         items: [
+            { to: "/hr-dashboard", label: "Recruitment", roles: HR_STAFF_ROLES },
             { to: "/hr/jobs", label: "Job openings", roles: HR_STAFF_ROLES },
             { to: "/hr/jobs/new", label: "Create job", roles: HR_STAFF_ROLES },
             {

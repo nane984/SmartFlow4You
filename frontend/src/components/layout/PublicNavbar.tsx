@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import LinkButton from "../ui/LinkButton";
 import { cn } from "../ui/cn";
+import Logo from "../ui/Logo";
 import { isAppAuthenticated } from "../../auth/accessUtils";
 import { PUBLIC_NAV_HEIGHT_CLASS } from "./layoutConstants";
 
@@ -35,15 +36,7 @@ export default function PublicNavbar() {
                 )}
             >
                 <div className={cn("mx-auto flex max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8", PUBLIC_NAV_HEIGHT_CLASS)}>
-                    <Link
-                        to="/"
-                        className={cn(
-                            "shrink-0 text-lg font-semibold tracking-tight no-underline",
-                            onDarkHero ? "text-white" : "text-brand-900"
-                        )}
-                    >
-                        SmartFlow
-                    </Link>
+                    <Logo to="/" theme={onDarkHero ? "dark" : "light"} />
 
                     <nav
                         className="hidden flex-1 items-center justify-center gap-8 md:flex"

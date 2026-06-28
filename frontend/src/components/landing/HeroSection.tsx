@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LinkButton from "../ui/LinkButton";
+import Logo, { LogoMark } from "../ui/Logo";
 import { cn } from "../ui/cn";
 import { isAppAuthenticated } from "../../auth/accessUtils";
 
@@ -44,9 +45,13 @@ export default function HeroSection({ onExploreDemo }: HeroSectionProps) {
                         AI-powered enterprise platform
                     </p>
 
-                    <h1 className="mt-8 text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-                        SmartFlow
-                    </h1>
+                    <div className="mx-auto flex flex-col items-center">
+                        <LogoMark className="mx-auto h-16 w-16 drop-shadow-lg" />
+                        <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+                            Smart
+                            <span className="text-teal-300">Flow</span>
+                        </h1>
+                    </div>
 
                     <p className="mt-5 text-lg leading-relaxed text-slate-200 sm:text-xl">
                         AI-powered ERP system for tenders, HR and project management

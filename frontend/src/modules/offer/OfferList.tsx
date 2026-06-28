@@ -5,6 +5,7 @@ import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import { deleteOffer, getOffers } from "./offer.api";
 import type { SupplierOffer } from "./offer.types";
+import BidTypeGuide from "../../components/procurement/BidTypeGuide";
 import { documentFileName, resolveMediaUrl } from "../../util/mediaUrl";
 
 function formatAmount(amount: string | null, currency: string): string {
@@ -61,13 +62,14 @@ export default function OfferList() {
         <>
             <PageHeader
                 title="Supplier offers"
-                description="Responses from suppliers linked to tenders via RFQ."
+                description="Supplier pricing responses linked to tenders via RFQ (not work-package Excel bids)."
                 actions={
                     <LinkButton variant="primary" size="sm" to="/offers/new">
-                        + Submit offer
+                        + Supplier offer
                     </LinkButton>
                 }
             />
+            <BidTypeGuide variant="compare" className="mb-4" />
             {error && (
                 <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
                     {error}

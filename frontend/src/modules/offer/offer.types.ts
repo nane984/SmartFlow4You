@@ -25,6 +25,24 @@ export interface OfferCreatePayload {
     notes?: string;
 }
 
+export interface OfferLineItem {
+    id: number;
+    supplier_offer: number;
+    tender_item: number;
+    tender_item_name?: string;
+    tender_item_unit?: string;
+    unit_price: string;
+    quantity: string;
+    line_total: string | null;
+}
+
+export interface OfferLineItemPayload {
+    supplier_offer: number;
+    tender_item: number;
+    unit_price: number;
+    quantity: number;
+}
+
 export interface OfferUpdatePayload {
     total_amount?: number;
     currency?: string;

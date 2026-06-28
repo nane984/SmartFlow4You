@@ -405,9 +405,53 @@ class SupplierOfferSerializer(serializers.ModelSerializer):
 
 
 class OfferItemSerializer(serializers.ModelSerializer):
+    tender_item_name = serializers.CharField(source="tender_item.name", read_only=True)
+    tender_item_unit = serializers.CharField(source="tender_item.unit", read_only=True)
+
     class Meta:
         model = OfferItem
-        fields = "__all__"
+        fields = [
+            "id",
+            "supplier_offer",
+            "tender_item",
+            "tender_item_name",
+            "tender_item_unit",
+            "unit_price",
+            "quantity",
+            "line_total",
+        ]
+
+    def validate(self, attrs: dict) -> dict:
+        supplier_offer = attrs.get("supplier_offer") or getattr(
+            self.instance, "supplier_offer", None
+        )
+        tender_item = attrs.get("tender_item") or getattr(self.instance, "tender_item", None)
+        if supplier_offer is None or tender_item is None:
+            return attrs
+
+        rfq = supplier_offer.rfq
+        if tender_item.tender_id != rfq.tender_id:
+            raise serializers.ValidationError(
+                {"tender_item": "Line item must belong to the same tender as the offer."}
+            )
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        if user and getattr(user, "is_authenticated", False):
+            from core.roles import is_procurement_staff, is_supplier_user
+            from .access import get_user_company_id
+
+            if is_supplier_user(user) and not is_procurement_staff(user):
+                company_id = get_user_company_id(user)
+                if not company_id or rfq.supplier_id != company_id:
+                    raise serializers.ValidationError(
+                        "You can only add line prices to your own company's offers."
+                    )
+
+        if attrs.get("quantity") is None and tender_item is not None:
+            attrs["quantity"] = tender_item.quantity
+
+        return attrs
 
 
 class FinalOfferSerializer(serializers.ModelSerializer):

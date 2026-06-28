@@ -134,7 +134,7 @@ export default function WorkPackageDetail() {
                             variant="primary"
                             size="sm"
                         >
-                            Submit bid
+                            Submit work package bid
                         </LinkButton>
                     </div>
                 }

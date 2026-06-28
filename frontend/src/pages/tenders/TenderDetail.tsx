@@ -110,8 +110,15 @@ export default function TenderDetail() {
                         <LinkButton to="/work-packages" variant="secondary" size="sm">
                             All packages
                         </LinkButton>
-                        <LinkButton to="/submissions/submit" variant="primary" size="sm">
-                            Submit bid
+                        <LinkButton
+                            to={`/submissions/submit?tender=${tender.id}`}
+                            variant="primary"
+                            size="sm"
+                        >
+                            Work package bid
+                        </LinkButton>
+                        <LinkButton to={`/offers/new?tender=${tender.id}`} variant="secondary" size="sm">
+                            Supplier offer
                         </LinkButton>
                     </>
                 }

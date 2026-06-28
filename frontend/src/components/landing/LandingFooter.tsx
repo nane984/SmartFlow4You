@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { APP_VERSION } from "./homeContent";
 import { cn } from "../ui/cn";
+import Logo from "../ui/Logo";
 
 export default function LandingFooter() {
     const year = new Date().getFullYear();
@@ -14,8 +15,8 @@ export default function LandingFooter() {
         >
             <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
                 <div>
-                    <p className="text-lg font-semibold text-white">SmartFlow</p>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <Logo to="/" theme="dark" />
+                    <p className="mt-2 text-sm text-slate-400">
                         AI-powered ERP for tenders, HR &amp; project management
                     </p>
                     <p className="mt-3 text-xs text-slate-500">Version {APP_VERSION}</p>

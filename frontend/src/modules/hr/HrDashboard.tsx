@@ -1,6 +1,10 @@
-import { Navigate } from "react-router-dom";
+import HrRecruitmentPanel from "../../components/dashboard/HrRecruitmentPanel";
 
-/** Legacy HR dashboard — recruitment overview is on the main dashboard. */
+/** HR recruitment hub — applications, jobs, interviews, and candidate pipeline. */
 export default function HrDashboard() {
-    return <Navigate to="/dashboard" replace />;
+    return (
+        <div className="pb-4">
+            <HrRecruitmentPanel />
+        </div>
+    );
 }

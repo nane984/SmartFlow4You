@@ -280,16 +280,37 @@ class SupplierOfferViewSet(viewsets.ModelViewSet):
             return None
 
 
-class OfferItemViewSet(ProcurementReadWriteMixin, viewsets.ModelViewSet):
+class OfferItemViewSet(viewsets.ModelViewSet):
+    """Staff: full CRUD. Supplier: read + create lines on own offers."""
+
     queryset = OfferItem.objects.select_related(
         "supplier_offer",
+        "supplier_offer__rfq",
         "tender_item",
         "tender_item__tender",
     ).all()
     serializer_class = OfferItemSerializer
 
+    def get_permissions(self):
+        if self.action in ("list", "retrieve", "create"):
+            return [IsProcurementReader()]
+        return [IsProcurementStaff()]
+
     def get_queryset(self):
-        return filter_offer_items_for_user(super().get_queryset(), self.request.user)
+        qs = filter_offer_items_for_user(super().get_queryset(), self.request.user)
+        offer_id = self._parse_int(self.request.query_params.get("supplier_offer"))
+        if offer_id is not None:
+            qs = qs.filter(supplier_offer_id=offer_id)
+        return qs.order_by("id")
+
+    @staticmethod
+    def _parse_int(raw: str | None) -> int | None:
+        if raw is None or not str(raw).strip():
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
 
 
 class FinalOfferViewSet(ProcurementReadWriteMixin, viewsets.ModelViewSet):
