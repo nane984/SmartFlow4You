@@ -18,6 +18,27 @@ function formatWhen(iso: string): string {
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
+function formatDateOnly(iso: string | null | undefined): string {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+        ? iso
+        : d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+}
+
+function sourceLabel(source: string): string {
+    switch (source) {
+        case "api":
+            return "Public Procurement API";
+        case "email":
+            return "Email";
+        case "manual":
+            return "Manual entry";
+        default:
+            return source || "Manual entry";
+    }
+}
+
 export default function TenderDetail() {
     const { id } = useParams();
     const tenderId = id ? Number.parseInt(id, 10) : NaN;
@@ -136,6 +157,24 @@ export default function TenderDetail() {
                             <dt className="font-medium text-slate-500">Deadline</dt>
                             <dd className="mt-1 text-slate-900">{formatWhen(tender.deadline)}</dd>
                         </div>
+                        <div className="sm:col-span-2">
+                            <dt className="font-medium text-slate-500">Description</dt>
+                            <dd className="mt-1 whitespace-pre-wrap text-slate-800">{tender.description || "—"}</dd>
+                        </div>
+                    </dl>
+                </Card>
+
+                <Card>
+                    <h2 className="text-base font-semibold text-slate-900">Procurement information</h2>
+                    <dl className="mt-4 space-y-3 text-sm">
+                        <div>
+                            <dt className="font-medium text-slate-500">Procurement source</dt>
+                            <dd className="mt-1 text-slate-900">{sourceLabel(tender.source)}</dd>
+                        </div>
+                        <div>
+                            <dt className="font-medium text-slate-500">Publication date</dt>
+                            <dd className="mt-1 text-slate-900">{formatDateOnly(tender.publication_date)}</dd>
+                        </div>
                         <div>
                             <dt className="font-medium text-slate-500">External ID</dt>
                             <dd className="mt-1 text-slate-900">{tender.external_id || "—"}</dd>
@@ -158,20 +197,39 @@ export default function TenderDetail() {
                             </dd>
                         </div>
                         <div>
+                            <dt className="font-medium text-slate-500">Imported automatically</dt>
+                            <dd className="mt-1 text-slate-900">
+                                {tender.auto_imported ? "Yes" : "No"}
+                            </dd>
+                        </div>
+                        {tender.tender_definition_name ? (
+                            <div>
+                                <dt className="font-medium text-slate-500">Tender definition</dt>
+                                <dd className="mt-1 text-slate-900">
+                                    <LinkButton
+                                        to="/tenders/definitions"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="!px-2 !py-1"
+                                    >
+                                        {tender.tender_definition_name}
+                                    </LinkButton>
+                                </dd>
+                            </div>
+                        ) : null}
+                        <div>
                             <dt className="font-medium text-slate-500">Tender type</dt>
                             <dd className="mt-1 text-slate-900">{tender.tender_type || "—"}</dd>
                         </div>
                         <div>
-                            <dt className="font-medium text-slate-500">Updated</dt>
-                            <dd className="mt-1 text-slate-900">{formatWhen(tender.updated_at)}</dd>
-                        </div>
-                        <div className="sm:col-span-2">
-                            <dt className="font-medium text-slate-500">Description</dt>
-                            <dd className="mt-1 whitespace-pre-wrap text-slate-800">{tender.description || "—"}</dd>
+                            <dt className="font-medium text-slate-500">Created</dt>
+                            <dd className="mt-1 text-slate-900">{formatWhen(tender.created_at)}</dd>
                         </div>
                     </dl>
                 </Card>
+            </div>
 
+            <div className="mt-6 max-w-5xl">
                 <Card>
                     <h2 className="text-base font-semibold text-slate-900">Documents</h2>
                     {!hasAnyDocument ? (

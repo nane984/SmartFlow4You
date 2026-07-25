@@ -8,10 +8,16 @@ from .models import (
     SupplierOffer,
     Tender,
     TenderDocument,
+    TenderDefinition,
+    TenderDefinitionExecutionLog,
+    TenderImportRecord,
     TenderItem,
+    TenderKeyword,
+    TenderNotification,
     WorkPackage,
     WorkPackageSubmission,
 )
+from .definition_models import ProcurementSource
 
 
 @admin.register(Company)
@@ -89,3 +95,42 @@ class OfferItemAdmin(admin.ModelAdmin):
 class FinalOfferAdmin(admin.ModelAdmin):
     list_display = ("tender", "supplier_offer", "decided_at")
     raw_id_fields = ("tender", "supplier_offer")
+
+
+class TenderKeywordInline(admin.TabularInline):
+    model = TenderKeyword
+    extra = 1
+
+
+class ProcurementSourceInline(admin.TabularInline):
+    model = ProcurementSource
+    extra = 1
+
+
+@admin.register(TenderDefinition)
+class TenderDefinitionAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_active", "check_frequency", "last_checked", "default_investor")
+    list_filter = ("is_active", "check_frequency")
+    search_fields = ("name", "description")
+    inlines = [TenderKeywordInline, ProcurementSourceInline]
+    raw_id_fields = ("created_by", "default_investor")
+
+
+@admin.register(TenderDefinitionExecutionLog)
+class TenderDefinitionExecutionLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "tender_definition",
+        "status",
+        "imported_count",
+        "processed_count",
+        "started_at",
+    )
+    list_filter = ("status",)
+    raw_id_fields = ("tender_definition",)
+
+
+@admin.register(TenderNotification)
+class TenderNotificationAdmin(admin.ModelAdmin):
+    list_display = ("title", "user", "tender", "is_read", "created_at")
+    list_filter = ("is_read",)
+    raw_id_fields = ("user", "tender")

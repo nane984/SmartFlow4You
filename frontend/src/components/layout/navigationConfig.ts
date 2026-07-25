@@ -5,6 +5,7 @@ import {
     HR_STAFF_ROLES,
     PROCUREMENT_STAFF_ROLES,
     PROCUREMENT_SUPPLIER_ROLES,
+    TENDER_DEFINITION_ROLES,
     ROLES,
     roleInList,
 } from "../../auth/roles";
@@ -53,8 +54,13 @@ export const NAV_SECTIONS: NavSection[] = [
     {
         id: "procurement",
         label: "Procurement",
-        roles: [...PROCUREMENT_STAFF_ROLES, ...PROCUREMENT_SUPPLIER_ROLES],
+        roles: [...PROCUREMENT_STAFF_ROLES, ...PROCUREMENT_SUPPLIER_ROLES, ...TENDER_DEFINITION_ROLES],
         items: [
+            {
+                to: "/tenders/definitions",
+                label: "Tender definitions",
+                roles: TENDER_DEFINITION_ROLES,
+            },
             {
                 to: "/tenders",
                 label: "Tenders",

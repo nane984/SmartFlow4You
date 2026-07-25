@@ -8,6 +8,7 @@ from .roles import (
     HR_STAFF_ROLES,
     PROCUREMENT_STAFF_ROLES,
     PROCUREMENT_SUPPLIER_ROLES,
+    TENDER_DEFINITION_ROLES,
     ROLE_ADMIN,
     user_has_role,
 )
@@ -71,3 +72,12 @@ class IsDesignStaff(permissions.BasePermission):
 
     def has_permission(self, request, view) -> bool:
         return user_has_role(request.user, DESIGN_STAFF_ROLES)
+
+
+class IsTenderDefinitionStaff(permissions.BasePermission):
+    """Tender Definition Management — admin and tender roles only."""
+
+    message = "Tender definition access required."
+
+    def has_permission(self, request, view) -> bool:
+        return user_has_role(request.user, TENDER_DEFINITION_ROLES)

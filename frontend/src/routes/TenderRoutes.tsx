@@ -1,5 +1,8 @@
 import { Route, Routes } from "react-router-dom";
+import RequireRole from "../components/common/RequireRole";
+import { TENDER_DEFINITION_ROLES } from "../auth/roles";
 import TenderCreate from "../pages/tenders/TenderCreate";
+import TenderDefinitionManagement from "../pages/tenders/TenderDefinitionManagement";
 import TenderDetail from "../pages/tenders/TenderDetail";
 import TenderEdit from "../pages/tenders/TenderEdit";
 import TenderList from "../pages/tenders/TenderList";
@@ -11,6 +14,9 @@ export default function TenderRoutes() {
         <Routes>
             <Route index element={<TenderList />} />
             <Route path="new" element={<TenderCreate />} />
+            <Route element={<RequireRole allowed={TENDER_DEFINITION_ROLES} />}>
+                <Route path="definitions" element={<TenderDefinitionManagement />} />
+            </Route>
             <Route path=":tenderId/work-packages/:wpId" element={<WorkPackageDetail />} />
             <Route path=":id/edit" element={<TenderEdit />} />
             <Route path=":id" element={<TenderDetail />} />

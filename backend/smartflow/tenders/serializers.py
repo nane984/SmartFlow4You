@@ -194,6 +194,11 @@ class TenderSerializer(serializers.ModelSerializer):
     )
     supplier_names = serializers.SerializerMethodField()
     analysis_summary = serializers.SerializerMethodField()
+    tender_definition_name = serializers.CharField(
+        source="tender_definition.name",
+        read_only=True,
+        allow_null=True,
+    )
 
     class Meta:
         model = Tender
@@ -212,6 +217,10 @@ class TenderSerializer(serializers.ModelSerializer):
             "visibility",
             "analysis_notes",
             "analysis_summary",
+            "auto_imported",
+            "tender_definition",
+            "tender_definition_name",
+            "publication_date",
             "document",
             "created_at",
             "updated_at",

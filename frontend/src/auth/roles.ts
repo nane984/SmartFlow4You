@@ -94,6 +94,9 @@ export const PROCUREMENT_ROLES: AppRole[] = [
     ...PROCUREMENT_SUPPLIER_ROLES,
 ];
 
+/** Tender Definition Management — admin + tender only */
+export const TENDER_DEFINITION_ROLES: AppRole[] = [ROLES.ADMIN, ROLES.TENDER];
+
 export const HR_STAFF_ROLES: AppRole[] = [ROLES.ADMIN, ROLES.HR_ADMIN, ROLES.HR];
 
 export const HR_INTERVIEWER_ROLES: AppRole[] = [ROLES.ADMIN, ROLES.INTERVIEWER];

@@ -33,6 +33,10 @@ export interface Tender {
     external_id: string;
     source_url: string;
     tender_type: string;
+    auto_imported?: boolean;
+    tender_definition?: number | null;
+    tender_definition_name?: string | null;
+    publication_date?: string | null;
     visibility?: TenderVisibility | string;
     analysis_notes?: string;
     analysis_summary?: TenderAnalysisSummary;

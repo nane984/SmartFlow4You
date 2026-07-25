@@ -5,6 +5,7 @@ import { clearMockSession, getEffectiveRole, getStoredUser } from "../../auth/ac
 import { roleLabel } from "../../auth/roles";
 import Button from "../ui/Button";
 import { cn } from "../ui/cn";
+import TenderNotificationBell from "./TenderNotificationBell";
 
 type TopbarProps = {
     onMenuToggle?: () => void;
@@ -49,6 +50,7 @@ export default function Topbar({ onMenuToggle, className }: TopbarProps) {
             </button>
 
             <div className="ml-auto flex min-w-0 items-center gap-3">
+                <TenderNotificationBell />
                 {displayName ? (
                     <span className="hidden max-w-[12rem] truncate text-sm text-slate-600 sm:inline">
                         {displayName}

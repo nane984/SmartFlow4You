@@ -4,6 +4,7 @@ import {
     HR_STAFF_ROLES,
     PROCUREMENT_ROLES,
     ROLES,
+    TENDER_DEFINITION_ROLES,
 } from "./roles";
 
 /**
@@ -17,6 +18,8 @@ export const ACCESS_DOMAINS = {
     HR: "hr",
     /** Interior design / CAD studio */
     INTERIOR_DESIGN: "interior_design",
+    /** Tender Definition Management — admin + tender */
+    TENDER_DEFINITION: "tender_definition",
     /** Public candidate portal (no role required) */
     CANDIDATE_PUBLIC: "candidate_public",
     /** Any authenticated internal user */
@@ -30,6 +33,7 @@ export const DOMAIN_ROLES: Record<Exclude<AccessDomain, "candidate_public">, App
     [ACCESS_DOMAINS.TENDERS]: PROCUREMENT_ROLES,
     [ACCESS_DOMAINS.HR]: [...HR_STAFF_ROLES, ROLES.INTERVIEWER],
     [ACCESS_DOMAINS.INTERIOR_DESIGN]: DESIGN_STAFF_ROLES,
+    [ACCESS_DOMAINS.TENDER_DEFINITION]: TENDER_DEFINITION_ROLES,
     [ACCESS_DOMAINS.AUTHENTICATED]: [
         ROLES.ADMIN,
         ROLES.TENDER,
@@ -54,5 +58,6 @@ export const ROUTE_ACCESS = {
     offers: { path: "/offers", domain: ACCESS_DOMAINS.TENDERS },
     hrJobs: { path: "/hr/jobs", domain: ACCESS_DOMAINS.HR },
     interiorDesign: { path: "/interior", domain: ACCESS_DOMAINS.INTERIOR_DESIGN },
+    tenderDefinitions: { path: "/tenders/definitions", domain: ACCESS_DOMAINS.TENDER_DEFINITION },
     candidatePortal: { path: "/candidate", public: true },
 } as const;

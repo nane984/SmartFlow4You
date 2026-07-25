@@ -112,6 +112,24 @@ class Tender(models.Model):
         blank=True,
         help_text="Tender analysis layer — AI summaries, categorization notes (future automation).",
     )
+    auto_imported = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True when created automatically by a Tender Definition.",
+    )
+    tender_definition = models.ForeignKey(
+        "TenderDefinition",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="imported_tenders",
+        help_text="Tender Definition that imported this tender, if any.",
+    )
+    publication_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Original publication date from external source.",
+    )
     suppliers = models.ManyToManyField(
         Company,
         related_name="supplier_tenders",
@@ -578,3 +596,22 @@ class Procurement(models.Model):
         if ref:
             return f"{self.title} ({ref})"
         return self.title
+
+
+from .definition_models import (  # noqa: E402, F401
+    ProcurementSource,
+    TenderDefinition,
+    TenderDefinitionExecutionLog,
+    TenderImportRecord,
+    TenderKeyword,
+    TenderNotification,
+)
+
+__all__ = [
+    "ProcurementSource",
+    "TenderDefinition",
+    "TenderDefinitionExecutionLog",
+    "TenderImportRecord",
+    "TenderKeyword",
+    "TenderNotification",
+]

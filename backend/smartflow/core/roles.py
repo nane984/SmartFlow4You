@@ -97,6 +97,9 @@ HR_STAFF_ROLES: Final = frozenset({ROLE_ADMIN, ROLE_HR_ADMIN, ROLE_HR_LEGACY, RO
 HR_CANDIDATE_ROLES: Final = frozenset({ROLE_CANDIDATE})
 DESIGN_STAFF_ROLES: Final = frozenset({ROLE_ADMIN, ROLE_DESIGNER})
 
+# Tender Definition / automated import — admin + tender only
+TENDER_DEFINITION_ROLES: Final = frozenset({ROLE_ADMIN, ROLE_TENDER})
+
 
 def user_has_role(user, allowed: frozenset[str]) -> bool:
     if not user or not getattr(user, "is_authenticated", False):
@@ -130,3 +133,7 @@ def is_admin_user(user) -> bool:
 
 def is_design_staff(user) -> bool:
     return user_has_role(user, DESIGN_STAFF_ROLES)
+
+
+def is_tender_definition_staff(user) -> bool:
+    return user_has_role(user, TENDER_DEFINITION_ROLES)
